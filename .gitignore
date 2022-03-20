@@ -30,3 +30,6 @@
 *.exe
 *.out
 *.app
+
+# Remove Temps
+*.DS_Store
