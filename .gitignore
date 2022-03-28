@@ -33,3 +33,4 @@
 
 # Remove Temps
 *.DS_Store
+build/*
