@@ -20,7 +20,7 @@ function(buildExample EXAMPLE_NAME)
 	endif(WIN32)
 
 	set_target_properties(${EXAMPLE_NAME} PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
-	set_target_properties(${EXAMPLE_NAME} PROPERTIES LINK_FLAGS /SUBSYSTEM:CONSOLE)
+	set_target_properties(${EXAMPLE_NAME} PROPERTIES CXX_STANDARD 17 CXX_EXTENSIONS OFF LINK_FLAGS /SUBSYSTEM:CONSOLE)
 	target_link_libraries(${EXAMPLE_NAME} glfw glm)
 endfunction(buildExample)
 
