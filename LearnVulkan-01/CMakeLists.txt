@@ -19,8 +19,10 @@ function(buildExample EXAMPLE_NAME)
 		target_link_libraries(${EXAMPLE_NAME})
 	endif(WIN32)
 
-	set_target_properties(${EXAMPLE_NAME} PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
-	set_target_properties(${EXAMPLE_NAME} PROPERTIES LINK_FLAGS /SUBSYSTEM:CONSOLE)
+	set_target_properties(${EXAMPLE_NAME} PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+    if(WIN32)
+	   set_target_properties(${EXAMPLE_NAME} PROPERTIES LINK_FLAGS /SUBSYSTEM:CONSOLE)
+    endif(WIN32)
 	target_link_libraries(${EXAMPLE_NAME} glfw glm)
 endfunction(buildExample)
 
