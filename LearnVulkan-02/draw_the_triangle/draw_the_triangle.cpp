@@ -1,4 +1,4 @@
-﻿#define GLFW_INCLUDE_VULKAN
+#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
 #include <iostream>
@@ -142,7 +142,7 @@ protected:
 		while (!glfwWindowShouldClose(window)) 
 		{
 			glfwPollEvents();
-			drawFrame();
+			drawFrame(); // 绘制一帧
 		}
 
 		vkDeviceWaitIdle(device);
@@ -187,6 +187,7 @@ protected:
 		glfwTerminate();
 	}
 
+     /** 在创建好一切必要资源后，执行绘制操作*/
 	void drawFrame()
 	{
 		vkWaitForFences(device, 1, &inFlightFence, VK_TRUE, UINT64_MAX);
@@ -290,11 +291,11 @@ protected:
 	}
 
 	/** 合法性监测层 Validation Layers
-	 *	- 检查参数规范，检测是否使用 Checking the values of parameters against the specification to detect misuse
-	 *	- 最终对象创建和销毁，找到资源泄漏 Tracking creation and destruction of objects to find resource leaks
-	 *	- 通过追踪线程原始调用，检查线程安全性 Checking thread safety by tracking the threads that calls originate from
-	 *	- 打印输出每次调用 Logging every call and its parameters to the standard output
-	 *	- 为优化和重现追踪Vulkan调用 Tracing Vulkan calls for profiling and replaying
+	 *	- 检查参数规范，检测是否使用
+	 *	- 最终对象创建和销毁，找到资源泄漏
+	 *	- 通过追踪线程原始调用，检查线程安全性
+	 *	- 打印输出每次调用
+	 *	- 为优化和重现追踪Vulkan调用
 	*/
 	void setupDebugMessenger() 
 	{
@@ -551,8 +552,8 @@ protected:
 	/** 创建图形渲染管线，加载着色器*/
 	void createGraphicsPipeline() 
 	{
-		auto vertShaderCode = readFile("resources/vert.spv");
-		auto fragShaderCode = readFile("resources/frag.spv");
+		auto vertShaderCode = readFile("Resources/vert.spv");
+		auto fragShaderCode = readFile("Resources/frag.spv");
 
 		VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
 		VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);

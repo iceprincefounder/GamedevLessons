@@ -20,7 +20,7 @@ function(buildExample EXAMPLE_NAME)
 	endif(WIN32)
 
     set (CURRENT_WORKING_DIR ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
-	set (RESOURCES_DIR ${CURRENT_WORKING_DIR}/resources)
+	set (RESOURCES_DIR ${CURRENT_WORKING_DIR}/Resources)
 	set(SHADERS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/${EXAMPLE_NAME}/shaders)
 	
 	# Compile shader
