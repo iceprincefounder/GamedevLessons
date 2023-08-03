@@ -20,15 +20,15 @@ function(buildExample EXAMPLE_NAME)
 	endif(WIN32)
 
     set (CURRENT_WORKING_DIR ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
-	set (RESOURCES_DIR ${CURRENT_WORKING_DIR}/Resources)
+	set (SHADER_BINARY ${CURRENT_WORKING_DIR}/ShaderCaches)
 	set(SHADERS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/${EXAMPLE_NAME}/shaders)
 	
 	# Compile shader
 	add_custom_command(
     OUTPUT SHADER_COMPILE
-	COMMAND ${CMAKE_COMMAND} -E make_directory ${RESOURCES_DIR}
-    COMMAND glslc ARGS ${SHADERS_DIR}/${EXAMPLE_NAME}.frag -o ${RESOURCES_DIR}/frag.spv
-    COMMAND glslc ARGS ${SHADERS_DIR}/${EXAMPLE_NAME}.vert -o ${RESOURCES_DIR}/vert.spv
+	COMMAND ${CMAKE_COMMAND} -E make_directory ${SHADER_BINARY}
+    COMMAND glslc ARGS ${SHADERS_DIR}/${EXAMPLE_NAME}.frag -o ${SHADER_BINARY}/${EXAMPLE_NAME}_frag.spv
+    COMMAND glslc ARGS ${SHADERS_DIR}/${EXAMPLE_NAME}.vert -o ${SHADER_BINARY}/${EXAMPLE_NAME}_vert.spv
 	WORKING_DIRECTORY ${SHADERS_DIR}
     DEPENDS ${SHADERS_DIR} ${SHADER_SOURCES}
     COMMENT "Compiling Shaders"
@@ -59,7 +59,7 @@ function(buildExamples)
 endfunction(buildExamples)
 
 set(EXAMPLES
-	draw_with_uniformbuffer
+	draw_with_buffers
 )
 
 buildExamples()
