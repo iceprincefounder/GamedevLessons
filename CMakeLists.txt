@@ -9,6 +9,8 @@ project(${PROJNAME})
 include_directories(Third_Party)
 include_directories(Third_Party/glfw)
 include_directories(Third_Party/glm)
+include_directories(Third_Party/stb)
+include_directories(Third_Party/tinyobjloader)
 
 # Use FindVulkan module added with CMAKE 3.7
 if(NOT CMAKE_VERSION VERSION_LESS 3.7.0)
@@ -119,6 +121,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 
 add_subdirectory(Third_Party/glfw)
 add_subdirectory(Third_Party/glm)
+add_subdirectory(Third_Party/tinyobjloader)
 add_subdirectory(LearnVulkan-01)
 add_subdirectory(LearnVulkan-02)
 add_subdirectory(LearnVulkan-03)
+add_subdirectory(LearnVulkan-04)
