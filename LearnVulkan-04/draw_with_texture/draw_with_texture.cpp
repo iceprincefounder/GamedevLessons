@@ -306,12 +306,11 @@ private:
 
 	std::vector<VkBuffer> uniformBuffers;				// 统一缓存区
 	std::vector<VkDeviceMemory> uniformBuffersMemory;	// 统一缓存区内存地址
-	std::vector<void*> uniformBuffersMapped;			//
 
-	VkImage textureImage;								//
-	VkDeviceMemory textureImageMemory;					//
-	VkImageView textureImageView;						//
-	VkSampler textureSampler;							//
+	VkImage textureImage;								// 纹理资源
+	VkDeviceMemory textureImageMemory;					// 纹理资源内存
+	VkImageView textureImageView;						// 纹理资源对应的视口
+	VkSampler textureSampler;							// 纹理采样器
 
 	VkRenderPass renderPass;							// 渲染层，保存Framebuffer和采样信息
 	VkDescriptorSetLayout descriptorSetLayout;			// 描述符集合配置，在渲染管线创建时指定
