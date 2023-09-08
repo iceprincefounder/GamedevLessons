@@ -21,9 +21,11 @@ function(buildProject PROJECT_NAME)
 
     set (CURRENT_WORKING_DIR ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 	set (SHADERS_DIR ${CURRENT_WORKING_DIR}/ShaderCaches)
-	set (TEXTURE_DIR ${CURRENT_WORKING_DIR}/Textures)
+	set (TEXTURES_DIR ${CURRENT_WORKING_DIR}/Textures)
+	set (MODELS_DIR ${CURRENT_WORKING_DIR}/Models)
 	set (SHADERS_SRC ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}/shaders)
-	set (TEXTURE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}/textures)
+	set (TEXTURES_SRC ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}/textures)
+	set (MODELS_SRC ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}/models)
 
 	# Compile shader and copy texures
 	add_custom_command(
@@ -31,13 +33,16 @@ function(buildProject PROJECT_NAME)
 	COMMAND ${CMAKE_COMMAND} -E make_directory ${SHADERS_DIR}
     COMMAND glslc ARGS ${SHADERS_SRC}/${PROJECT_NAME}.frag -o ${SHADERS_DIR}/${PROJECT_NAME}_frag.spv
     COMMAND glslc ARGS ${SHADERS_SRC}/${PROJECT_NAME}.vert -o ${SHADERS_DIR}/${PROJECT_NAME}_vert.spv
+    COMMAND glslc ARGS ${SHADERS_SRC}/${PROJECT_NAME}_bg.frag -o ${SHADERS_DIR}/${PROJECT_NAME}_bg_frag.spv
+    COMMAND glslc ARGS ${SHADERS_SRC}/${PROJECT_NAME}_bg.vert -o ${SHADERS_DIR}/${PROJECT_NAME}_bg_vert.spv
 	WORKING_DIRECTORY ${SHADERS_SRC}
     DEPENDS ${SHADERS_SRC} ${SHADER_SOURCES}
 	VERBATIM
 	COMMENT "Compiling Shaders!"
-	COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURE_SRC}/botw_mifa.png ${TEXTURE_DIR}/botw_mifa.png
-	COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURE_SRC}/background.png ${TEXTURE_DIR}/background.png
+	COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/viking_room.png ${TEXTURES_DIR}/viking_room.png
 	COMMENT "Copying Textures!"
+	COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/viking_room.obj ${MODELS_DIR}/viking_room.obj
+	COMMENT "Copying Models!"
     )
 
 	set(COMPILE_SHADER_TARGET ${PROJECT_NAME}_shader)
