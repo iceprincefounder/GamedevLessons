@@ -39,14 +39,20 @@ function(buildProject PROJECT_NAME)
     DEPENDS ${SHADERS_SRC} ${SHADER_SOURCES}
 	VERBATIM
 	COMMENT "Compiling Shaders!"
-	COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/viking_room.png ${TEXTURES_DIR}/viking_room.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/viking_room.png ${TEXTURES_DIR}/viking_room.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/hylian_shield_basecolor.png ${TEXTURES_DIR}/hylian_shield_basecolor.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/master_sword_basecolor.png ${TEXTURES_DIR}/master_sword_basecolor.png
+	COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/steath_basecolor.png ${TEXTURES_DIR}/steath_basecolor.png
 	COMMENT "Copying Textures!"
 	COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/viking_room.obj ${MODELS_DIR}/viking_room.obj
+    COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/hylian_shield.obj ${MODELS_DIR}/hylian_shield.obj
+    COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/master_sword.obj ${MODELS_DIR}/master_sword.obj
+    COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/steath.obj ${MODELS_DIR}/steath.obj
 	COMMENT "Copying Models!"
     )
 
 	set(COMPILE_SHADER_TARGET ${PROJECT_NAME}_shader)
-	set(SHADER_SOURCES ${SHADERS_SRC}/${PROJECT_NAME}.frag ${SHADERS_SRC}/${PROJECT_NAME}.vert)
+	set(SHADER_SOURCES ${SHADERS_SRC}/${PROJECT_NAME}.frag ${SHADERS_SRC}/${PROJECT_NAME}.vert ${SHADERS_SRC}/${PROJECT_NAME}_bg.frag ${SHADERS_SRC}/${PROJECT_NAME}_bg.vert)
 	add_custom_target(${COMPILE_SHADER_TARGET} ALL DEPENDS SHADER_COMPILE SOURCES ${SHADER_SOURCES})
 	add_dependencies (${PROJECT_NAME} ${COMPILE_SHADER_TARGET})
 	

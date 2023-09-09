@@ -1,4 +1,4 @@
-﻿#define GLFW_INCLUDE_VULKAN
+#define GLFW_INCLUDE_VULKAN
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE // 深度缓存区，OpenGL默认是（-1， 1）Vulakn为（0.0， 1.0）
 #include <GLFW/glfw3.h>
@@ -159,7 +159,7 @@ public:
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-        window = glfwCreateWindow(WIDTH, HEIGHT, "LearnVulkan-04: Draw With Texture", nullptr, nullptr);
+        window = glfwCreateWindow(WIDTH, HEIGHT, "LearnVulkan-05: Draw the Scene", nullptr, nullptr);
     }
 
     /** 初始化Vulkan的渲染管线*/
@@ -276,7 +276,8 @@ private:
 		std::vector<VkDescriptorSet> descriptorSets;
 	};
 
-	struct Material {
+	struct RenderPipeline {
+        VkDescriptorSetLayout descriptorSetLayout;
 		VkPipelineLayout pipelineLayout;
 		VkPipeline graphicsPipeline;
 	};
@@ -304,15 +305,13 @@ private:
 	VkDeviceMemory depthImageMemory;					// 深度纹理内存
 	VkImageView depthImageView;							// 深度纹理图像
 
-	std::vector<Vertex> vertices;
-	std::vector<uint32_t> indices;
 	VkBuffer vertexBuffer;								// 顶点缓存区
 	VkDeviceMemory vertexBufferMemory;					// 顶点缓存区分配的内存
 	VkBuffer indexBuffer;								// 顶点点序缓存区
 	VkDeviceMemory indexBufferMemory;					// 顶点点序缓存区分贝的内存
 
 	std::vector<StageObject> stageScene;
-	std::vector<Material> materialLayer;
+    RenderPipeline pipelineStage;
 
 	std::vector<VkBuffer> uniformBuffers;				// 统一缓存区
 	std::vector<VkDeviceMemory> uniformBuffersMemory;	// 统一缓存区内存地址
@@ -328,8 +327,6 @@ private:
 	std::vector<VkDescriptorSet> descriptorSets;		// 描述符集合，描述符使得着色器可以自由的访问缓存和图片
 	VkPipelineLayout pipelineLayout;					// 管线布局，可以创建和绑定VertexBuffer和UniformBuffer
 	VkPipeline graphicsPipeline;						// 图形渲染管线
-	VkPipelineLayout pipelineLayout0;					// 管线布局，可以创建和绑定VertexBuffer和UniformBuffer
-	VkPipeline graphicsPipeline0;						// 图形渲染管线
 
 	VkCommandPool commandPool;							// 指令池
 	VkCommandBuffer commandBuffer;						// 指令缓存
@@ -352,7 +349,7 @@ protected:
 		{
 			throw std::runtime_error("validation layers requested, but not available!");
 		}
-
+    
 		VkApplicationInfo appInfo{};
 		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 		appInfo.pApplicationName = "Hello Triangle";
@@ -661,41 +658,14 @@ protected:
 	/** 定义着色器的描述符号，以创建UniformBuffer*/
 	void createDescriptorSetLayout() 
 	{
-        // UnifromBufferObject（ubo）绑定
-		VkDescriptorSetLayoutBinding uboLayoutBinding{};
-		uboLayoutBinding.binding = 0;
-		uboLayoutBinding.descriptorCount = 1;
-		uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		uboLayoutBinding.pImmutableSamplers = nullptr;
-		uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-		VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-		samplerLayoutBinding.binding = 1;
-		samplerLayoutBinding.descriptorCount = 1;
-		samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		samplerLayoutBinding.pImmutableSamplers = nullptr;
-		samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-        // 将UnifromBufferObject和贴图采样器绑定到DescriptorSetLayout上
-		std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplerLayoutBinding };
-		VkDescriptorSetLayoutCreateInfo layoutInfo{};
-		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
-		layoutInfo.pBindings = bindings.data();
-
-		if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create descriptor set layout!");
-		}
+        createDescriptorSetLayout(descriptorSetLayout);
 	}
 
 	/** 创建图形渲染管线，加载着色器*/
 	void createGraphicsPipeline() 
 	{
-		// TODO~
-		//createGraphicsPipeline(pipelineLayout0, graphicsPipeline0, "ShaderCaches/draw_the_scene_vert.spv", "ShaderCaches/draw_the_scene_frag.spv");
-		createGraphicsPipeline(pipelineLayout, graphicsPipeline, "ShaderCaches/draw_the_scene_vert.spv", "ShaderCaches/draw_the_scene_frag.spv");
-		//materialLayer.push_back(StageMatetial);
-	}
+		createGraphicsPipeline(pipelineLayout, graphicsPipeline, "ShaderCaches/draw_the_scene_vert.spv", "ShaderCaches/draw_the_scene_frag.spv", descriptorSetLayout);
+    }
 
 	/** 创建Shader模块*/
 	VkShaderModule createShaderModule(const std::vector<char>& code)
@@ -784,10 +754,22 @@ protected:
 
 	void createStageScene()
 	{
+        // 创建背景渲染流水线和着色器
+        createDescriptorSetLayout(descriptorSetLayout);
+        createGraphicsPipeline(pipelineLayout, graphicsPipeline, "ShaderCaches/draw_the_scene_bg_vert.spv", "ShaderCaches/draw_the_scene_bg_frag.spv", descriptorSetLayout, VK_FALSE, VK_CULL_MODE_NONE);
+
+        // 创建Background贴图
 		createImage(textureImage, textureImageMemory, "Textures/background.png");// 创建贴图资源
 		createImageView(textureImageView, textureImage, VK_FORMAT_R8G8B8A8_SRGB);// 创建着色器中引用的贴图View
 		createSampler(textureSampler);// 创建着色器中引用的贴图采样器
+        createDescriptorPool(descriptorPool);
+        createDescriptorSets(descriptorSets, descriptorPool, textureImageView, textureSampler);
 
+        // 创建场景渲染流水线和着色器
+        createDescriptorSetLayout(pipelineStage.descriptorSetLayout);
+        createGraphicsPipeline(pipelineStage.pipelineLayout, pipelineStage.graphicsPipeline, "ShaderCaches/draw_the_scene_vert.spv", "ShaderCaches/draw_the_scene_frag.spv", pipelineStage.descriptorSetLayout);
+
+        // 创建场景，包括VBO和UBO等
 		StageObject hylian_shield;
 		createVertices(hylian_shield.vertices, hylian_shield.indices, "Models/hylian_shield.obj");
 		createImage(hylian_shield.textureImage, hylian_shield.textureImageMemory, "Textures/hylian_shield_basecolor.png");
@@ -800,7 +782,7 @@ protected:
 
 		StageObject master_sword;
 		createVertices(master_sword.vertices, master_sword.indices, "Models/master_sword.obj");
-		createImage(master_sword.textureImage, master_sword.textureImageMemory, "Textures/master_sword_basecolor.png");
+		createImage(master_sword.textureImage, master_sword.textureImageMemory, "Textures/background.png");
 		createImageView(master_sword.textureImageView, master_sword.textureImage, VK_FORMAT_R8G8B8A8_SRGB);
 		createSampler(master_sword.textureSampler);
 		createVertexBuffer(master_sword.vertexBuffer, master_sword.vertexBufferMemory, master_sword.vertices);
@@ -810,7 +792,7 @@ protected:
 
 		StageObject steath;
 		createVertices(steath.vertices, steath.indices, "Models/steath.obj");
-		createImage(steath.textureImage, steath.textureImageMemory, "Textures/steath_basecolor.png");
+		createImage(steath.textureImage, steath.textureImageMemory, "Textures/background.png");
 		createImageView(steath.textureImageView, steath.textureImage, VK_FORMAT_R8G8B8A8_SRGB);
 		createSampler(steath.textureSampler);
 		createVertexBuffer(steath.vertexBuffer, steath.vertexBufferMemory, steath.vertices);
@@ -882,44 +864,25 @@ protected:
 
 		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+        // 渲染背景
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
+        vkCmdDraw(commandBuffer, 6, 1, 0, 0);
 
-		//VkBuffer vertexBuffers[] = { vertexBuffer };
-		//VkDeviceSize offsets[] = { 0 };
-		//vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-		//vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-
-		//vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
-
-		// 如果顶点就按照传入的顶点渲染，使用vkCmdDraw
-		// vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0);
-		// 如果顶点需要按照点序渲染，使用vkCmdDrawIndexed
-		//vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
-
-		for (size_t i = 0; i < stageScene.size(); i++)
+        // 渲染场景
+        for (size_t i = 0; i < stageScene.size(); i++)
 		{
-			StageObject object = stageScene[i];
+            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineStage.graphicsPipeline);
+            StageObject object = stageScene[i];
 			VkBuffer objectVertexBuffers[] = { object.vertexBuffer };
 			VkDeviceSize objectOffsets[] = { 0 };
 			vkCmdBindVertexBuffers(commandBuffer, 0, 1, objectVertexBuffers, objectOffsets);
 			vkCmdBindIndexBuffer(commandBuffer, object.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &object.descriptorSets[currentFrame], 0, nullptr);
+			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineStage.pipelineLayout, 0, 1, &object.descriptorSets[currentFrame], 0, nullptr);
 			vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(object.indices.size()), 1, 0, 0, 0);
 		}
 
-		//VkBuffer vertexBuffers1[] = { vertexBuffer1 };
-		//vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers1, offsets);
-		//vkCmdBindIndexBuffer(commandBuffer, indexBuffer1, 0, VK_INDEX_TYPE_UINT32);
-		//vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets1[currentFrame], 0, nullptr);
-		//vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices1.size()), 1, 0, 0, 0);
-
-		//VkBuffer vertexBuffers2[] = { vertexBuffer2 };
-		//vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers2, offsets);
-		//vkCmdBindIndexBuffer(commandBuffer, indexBuffer2, 0, VK_INDEX_TYPE_UINT32);
-		//vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets2[currentFrame], 0, nullptr);
-		//vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices2.size()), 1, 0, 0, 0);
-
-		vkCmdEndRenderPass(commandBuffer);
+        vkCmdEndRenderPass(commandBuffer);
 
 		if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) 
 		{
@@ -971,16 +934,18 @@ protected:
 
 		vkDestroySwapchainKHR(device, swapChain, nullptr);
 
-		vkDestroyPipeline(device, graphicsPipeline, nullptr);
-		vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 		vkDestroyRenderPass(device, renderPass, nullptr);
 
-		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+        {
 			vkDestroyBuffer(device, uniformBuffers[i], nullptr);
 			vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
 		}
 		vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
-		vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+        vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+        vkDestroyPipeline(device, graphicsPipeline, nullptr);
+
+        vkDestroyDescriptorPool(device, descriptorPool, nullptr);
 
 		vkDestroyBuffer(device, indexBuffer, nullptr);
 		vkFreeMemory(device, indexBufferMemory, nullptr);
@@ -991,7 +956,28 @@ protected:
 		vkDestroyImage(device, textureImage, nullptr);
 		vkFreeMemory(device, textureImageMemory, nullptr);
 
-		vkDestroyCommandPool(device, commandPool, nullptr);
+        for (size_t i = 0; i < stageScene.size(); i++)
+        {
+            StageObject stageObject = stageScene[i];
+
+            vkDestroyDescriptorSetLayout(device, pipelineStage.descriptorSetLayout, nullptr);
+            vkDestroyPipelineLayout(device, pipelineStage.pipelineLayout, nullptr);
+            vkDestroyPipeline(device, pipelineStage.graphicsPipeline, nullptr);
+
+            vkDestroyDescriptorPool(device, stageObject.descriptorPool, nullptr);
+
+            vkDestroyImageView(device, stageObject.textureImageView, nullptr);
+            vkDestroySampler(device, stageObject.textureSampler, nullptr);
+            vkDestroyImage(device, stageObject.textureImage, nullptr);
+            vkFreeMemory(device, stageObject.textureImageMemory, nullptr);
+
+            vkDestroyBuffer(device, stageObject.vertexBuffer, nullptr);
+            vkFreeMemory(device, stageObject.vertexBufferMemory, nullptr);
+            vkDestroyBuffer(device, stageObject.indexBuffer, nullptr);
+            vkFreeMemory(device, stageObject.indexBufferMemory, nullptr);
+        }
+
+        vkDestroyCommandPool(device, commandPool, nullptr);
 
 		vkDestroyDevice(device, nullptr);
 
@@ -1281,7 +1267,38 @@ protected:
 		endSingleTimeCommands(commandBuffer);
 	}
 
-	void createGraphicsPipeline(VkPipelineLayout& outPipelineLayout, VkPipeline& outGraphicsPipeline, const std::string& vert_filename, const std::string& frag_filename)
+
+    void createDescriptorSetLayout(VkDescriptorSetLayout& outDescriptorSetLayout)
+    {
+        // UnifromBufferObject（ubo）绑定
+        VkDescriptorSetLayoutBinding uboLayoutBinding{};
+        uboLayoutBinding.binding = 0;
+        uboLayoutBinding.descriptorCount = 1;
+        uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        uboLayoutBinding.pImmutableSamplers = nullptr;
+        uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+        VkDescriptorSetLayoutBinding samplerLayoutBinding{};
+        samplerLayoutBinding.binding = 1;
+        samplerLayoutBinding.descriptorCount = 1;
+        samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        samplerLayoutBinding.pImmutableSamplers = nullptr;
+        samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+        // 将UnifromBufferObject和贴图采样器绑定到DescriptorSetLayout上
+        std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplerLayoutBinding };
+        VkDescriptorSetLayoutCreateInfo layoutInfo{};
+        layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+        layoutInfo.pBindings = bindings.data();
+
+        if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &outDescriptorSetLayout) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create descriptor set layout!");
+        }
+    }
+
+    void createGraphicsPipeline(VkPipelineLayout& outPipelineLayout, VkPipeline& outGraphicsPipeline, const std::string& vert_filename, const std::string& frag_filename, const VkDescriptorSetLayout& inDescriptorSetLayout,
+                                VkBool32 bDepthTest = VK_TRUE, VkCullModeFlags CullMode = VK_CULL_MODE_BACK_BIT)
 	{
 		auto vertShaderCode = readShaderSource(vert_filename);
 		auto fragShaderCode = readShaderSource(frag_filename);
@@ -1331,7 +1348,7 @@ protected:
 		rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 		rasterizer.lineWidth = 1.0f;
 		// 关闭背面剔除，使得材质TwoSide渲染
-		rasterizer.cullMode = VK_CULL_MODE_NONE /*VK_CULL_MODE_BACK_BIT*/;
+		rasterizer.cullMode = CullMode /*VK_CULL_MODE_BACK_BIT*/;
 		rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 		rasterizer.depthBiasEnable = VK_FALSE;
 
@@ -1343,8 +1360,8 @@ protected:
 		// 打开深度测试
 		VkPipelineDepthStencilStateCreateInfo depthStencil{};
 		depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-		depthStencil.depthTestEnable = VK_TRUE;
-		depthStencil.depthWriteEnable = VK_TRUE;
+        depthStencil.depthTestEnable = bDepthTest; //VK_TRUE;
+        depthStencil.depthWriteEnable = bDepthTest; //VK_TRUE;
 		depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
 		depthStencil.depthBoundsTestEnable = VK_FALSE;
 		depthStencil.minDepthBounds = 0.0f; // Optional
@@ -1381,7 +1398,7 @@ protected:
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 		pipelineLayoutInfo.setLayoutCount = 1;
-		pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
+		pipelineLayoutInfo.pSetLayouts = &inDescriptorSetLayout;
 
 		// PipelineLayout可以用来创建和绑定VertexBuffer和UniformBuffer，这样可以往着色器中传递参数
 		if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &outPipelineLayout) != VK_SUCCESS)
@@ -1419,14 +1436,13 @@ protected:
 	{
 		readModelResource(filename, outVertices, outIndices);
 	}
-
 	/** 更新统一缓存区*/
 	void updateUniformBuffer(uint32_t currentImage)
 	{
 		static auto startTime = std::chrono::high_resolution_clock::now();
 
 		auto currentTime = std::chrono::high_resolution_clock::now();
-		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+        float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
 		UniformBufferObject ubo{};
 		ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
@@ -1440,7 +1456,7 @@ protected:
 		vkUnmapMemory(device, uniformBuffersMemory[currentImage]);
 	}
 
-	/** 读取一个贴图路劲，然后创建图像资源*/
+	/** 读取一个贴图路径，然后创建图像资源*/
 	void createImage(VkImage& outImage, VkDeviceMemory& outMemory, const std::string& filename)
 	{
 		int texWidth, texHeight, texChannels;
