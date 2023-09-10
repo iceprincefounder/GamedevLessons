@@ -1,4 +1,4 @@
-﻿#define GLFW_INCLUDE_VULKAN
+#define GLFW_INCLUDE_VULKAN
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE // 深度缓存区，OpenGL默认是（-1.0， 1.0）Vulakn为（0.0， 1.0）
 #include <GLFW/glfw3.h>
@@ -210,14 +210,15 @@ public:
 	{
 		// 等待上一帧绘制完成
 		vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
-		updateUniformBuffer(currentFrame);
+		updateUniformBuffer(currentFrame); // 更新统一缓存区（UBO）
 		vkResetFences(device, 1, &inFlightFences[currentFrame]);
 
 		uint32_t imageIndex;
 		vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
+        // 清除渲染指令缓存
 		vkResetCommandBuffer(commandBuffers[currentFrame], /*VkCommandBufferResetFlagBits*/ 0);
-		// 记录所有的渲染指令缓存
+		// 记录新的所有的渲染指令缓存
 		recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
 
 		VkSubmitInfo submitInfo{};
@@ -259,12 +260,6 @@ public:
 	}
 
 private:
-	struct RenderPipeline {
-		VkDescriptorSetLayout descriptorSetLayout;  // 描述符集合布局
-		VkPipelineLayout pipelineLayout;			// 渲染管线布局
-		VkPipeline graphicsPipeline;				// 渲染管线
-	};
-
 	struct StageObject {
 		std::vector<Vertex> vertices;		// 顶点
 		std::vector<uint32_t> indices;		// 点序
@@ -282,7 +277,13 @@ private:
 		std::vector<VkDescriptorSet> descriptorSets;	// 描述符集合
 	};
 
-	GLFWwindow* window;									// Window 渲染桌面
+    struct RenderPipeline {
+        VkDescriptorSetLayout descriptorSetLayout;  // 描述符集合布局
+        VkPipelineLayout pipelineLayout;            // 渲染管线布局
+        VkPipeline graphicsPipeline;                // 渲染管线
+    };
+
+    GLFWwindow* window;									// Window 渲染桌面
 
 	VkInstance instance;								// 链接程序的Vulkan实例
 	VkDebugUtilsMessengerEXT debugMessenger;
@@ -305,8 +306,8 @@ private:
 	VkDeviceMemory depthImageMemory;					// 深度纹理内存
 	VkImageView depthImageView;							// 深度纹理图像
 
-	std::vector<StageObject> stageScene;
-	RenderPipeline pipelineStage;
+	std::vector<StageObject> stageScene;                // 场景数据，包含顶点和贴图等信息
+	RenderPipeline stagePipeline;                       // 场景渲染管线，定义了着色器和描述符布局
 
 	std::vector<VkBuffer> uniformBuffers;				// 统一缓存区
 	std::vector<VkDeviceMemory> uniformBuffersMemory;	// 统一缓存区内存地址
@@ -334,7 +335,7 @@ private:
 	std::vector<VkSemaphore> imageAvailableSemaphores;	// 图像是否完成的信号
 	std::vector<VkSemaphore> renderFinishedSemaphores;	// 渲染是否结束的信号
 	std::vector<VkFence> inFlightFences;				// 围栏，下一帧渲染前等待上一帧全部渲染完成
-	uint32_t currentFrame = 0;
+	uint32_t currentFrame = 0;                          // 当前渲染帧序号
 
 protected:
 	/** 创建程序和Vulkan之间的连接，涉及程序和显卡驱动之间特殊细节*/
@@ -347,9 +348,9 @@ protected:
 
 		VkApplicationInfo appInfo{};
 		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-		appInfo.pApplicationName = "Hello Triangle";
+		appInfo.pApplicationName = "Render the Scene";
 		appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-		appInfo.pEngineName = "No Engine";
+		appInfo.pEngineName = "Vulkan Engine";
 		appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
 		appInfo.apiVersion = VK_API_VERSION_1_0;
 
@@ -357,7 +358,7 @@ protected:
 		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 		createInfo.pApplicationInfo = &appInfo;
 
-		/** Get Required Extensions*/
+		/** 获取需要的glfw拓展名*/
 		uint32_t glfwExtensionCount = 0;
 		const char** glfwExtensions;
 		glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
@@ -662,23 +663,6 @@ protected:
 		createGraphicsPipeline(pipelineLayout, graphicsPipeline, descriptorSetLayout, "ShaderCaches/draw_the_scene_bg_vert.spv", "ShaderCaches/draw_the_scene_bg_frag.spv", VK_FALSE, VK_CULL_MODE_NONE);
 	}
 
-	/** 创建Shader模块*/
-	VkShaderModule createShaderModule(const std::vector<char>& code)
-	{
-		VkShaderModuleCreateInfo createInfo{};
-		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-		createInfo.codeSize = code.size();
-		createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
-
-		VkShaderModule shaderModule;
-		if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to create shader module!");
-		}
-
-		return shaderModule;
-	}
-
 	/** 创建帧缓存，即每帧图像对应的渲染数据*/
 	void createFramebuffers()
 	{
@@ -773,14 +757,14 @@ protected:
 			createVertexBuffer(outStageObject.vertexBuffer, outStageObject.vertexBufferMemory, outStageObject.vertices);
 			createIndexBuffer(outStageObject.indexBuffer, outStageObject.indexBufferMemory, outStageObject.indices);
 			createDescriptorPool(outStageObject.descriptorPool, (pngfiles.size() + 1));
-			createDescriptorSets(outStageObject.descriptorSets, outStageObject.descriptorPool, pipelineStage.descriptorSetLayout, outStageObject.textureImageViews, outStageObject.textureSamplers);
+			createDescriptorSets(outStageObject.descriptorSets, outStageObject.descriptorPool, stagePipeline.descriptorSetLayout, outStageObject.textureImageViews, outStageObject.textureSamplers);
 		};
 
 		// layout_size直接定义了DescriptorSets的大小，如，有一个UBO和两张贴图，那么布局的大小就是 1+2=3
 		uint32_t layout_size = 3;
 		// 创建场景渲染流水线和着色器
-		createDescriptorSetLayout(pipelineStage.descriptorSetLayout, layout_size);
-		createGraphicsPipeline(pipelineStage.pipelineLayout, pipelineStage.graphicsPipeline, pipelineStage.descriptorSetLayout, "ShaderCaches/draw_the_scene_vert.spv", "ShaderCaches/draw_the_scene_frag.spv");
+		createDescriptorSetLayout(stagePipeline.descriptorSetLayout, layout_size);
+		createGraphicsPipeline(stagePipeline.pipelineLayout, stagePipeline.graphicsPipeline, stagePipeline.descriptorSetLayout, "ShaderCaches/draw_the_scene_vert.spv", "ShaderCaches/draw_the_scene_frag.spv");
 
 		// 创建场景，包括VBO和UBO等
 		StageObject hylian_shield;
@@ -825,6 +809,7 @@ protected:
 		VkCommandBufferBeginInfo beginInfo{};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
+        // 开始记录指令
 		if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to begin recording command buffer!");
@@ -844,21 +829,24 @@ protected:
 		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 		renderPassInfo.pClearValues = clearValues.data();
 
-		VkViewport viewport{};
-		viewport.x = 0.0f;
-		viewport.y = 0.0f;
-		viewport.width = (float)swapChainExtent.width;
-		viewport.height = (float)swapChainExtent.height;
-		viewport.minDepth = 0.0f;
-		viewport.maxDepth = 1.0f;
-
-		VkRect2D scissor{};
-		scissor.offset = { 0, 0 };
-		scissor.extent = swapChainExtent;
-
+        // 开始RenderPass
 		vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+        // 渲染视口信息
+        VkViewport viewport{};
+        viewport.x = 0.0f;
+        viewport.y = 0.0f;
+        viewport.width = (float)swapChainExtent.width;
+        viewport.height = (float)swapChainExtent.height;
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+
+        // 视口剪切信息
+        VkRect2D scissor{};
+        scissor.offset = { 0, 0 };
+        scissor.extent = swapChainExtent;
+
+        vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
 		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
@@ -870,18 +858,20 @@ protected:
 		// 渲染场景
 		for (size_t i = 0; i < stageScene.size(); i++)
 		{
-			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineStage.graphicsPipeline);
+			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, stagePipeline.graphicsPipeline);
 			StageObject stageObject = stageScene[i];
 			VkBuffer objectVertexBuffers[] = { stageObject.vertexBuffer };
 			VkDeviceSize objectOffsets[] = { 0 };
 			vkCmdBindVertexBuffers(commandBuffer, 0, 1, objectVertexBuffers, objectOffsets);
 			vkCmdBindIndexBuffer(commandBuffer, stageObject.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineStage.pipelineLayout, 0, 1, &stageObject.descriptorSets[currentFrame], 0, nullptr);
+			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, stagePipeline.pipelineLayout, 0, 1, &stageObject.descriptorSets[currentFrame], 0, nullptr);
 			vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(stageObject.indices.size()), 1, 0, 0, 0);
 		}
 
+        // 结束RenderPass
 		vkCmdEndRenderPass(commandBuffer);
 
+        // 开始记录指令
 		if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to record command buffer!");
@@ -955,9 +945,9 @@ protected:
 		vkFreeMemory(device, depthImageMemory, nullptr);
 		vkDestroyImage(device, depthImage, nullptr);
 
-		vkDestroyDescriptorSetLayout(device, pipelineStage.descriptorSetLayout, nullptr);
-		vkDestroyPipelineLayout(device, pipelineStage.pipelineLayout, nullptr);
-		vkDestroyPipeline(device, pipelineStage.graphicsPipeline, nullptr);
+		vkDestroyDescriptorSetLayout(device, stagePipeline.descriptorSetLayout, nullptr);
+		vkDestroyPipelineLayout(device, stagePipeline.pipelineLayout, nullptr);
+		vkDestroyPipeline(device, stagePipeline.graphicsPipeline, nullptr);
 
 		for (size_t i = 0; i < stageScene.size(); i++)
 		{
@@ -1191,7 +1181,7 @@ protected:
 
 		throw std::runtime_error("failed to find suitable memory type!");
 	}
-
+    
 	VkCommandBuffer beginSingleTimeCommands()
 	{
 		// 和渲染一样，使用CommandBuffer拷贝缓存
@@ -1269,7 +1259,82 @@ protected:
 		endSingleTimeCommands(commandBuffer);
 	}
 
+    /**从文件中读取顶点和点序*/
+    void createVertices(std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices, const std::string& filename)
+    {
+        readModelResource(filename, outVertices, outIndices);
+    }
 
+    /**创建顶点缓存区VBO*/
+    void createVertexBuffer(VkBuffer& outBuffer, VkDeviceMemory& outMemory, const std::vector<Vertex>& inVertices)
+    {
+        // 根据vertices大小创建VertexBuffer
+        VkDeviceSize bufferSize = sizeof(inVertices[0]) * inVertices.size();
+
+        // 为什么需要stagingBuffer，因为直接创建VertexBuffer，CPU端可以直接通过vertexBufferMemory范围GPU使用的内存，这样太危险了，
+        // 所以我们先创建一个临时的Buffer写入数据，然后将这个Buffer拷贝给最终的VertexBuffer，
+        // VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT标签，使得最终的VertexBuffer位于硬件本地内存中，比如显卡的显存。
+        VkBuffer stagingBuffer;
+        VkDeviceMemory stagingBufferMemory;
+        // 通用函数用来创建VertexBuffer，这样可以方便创建StagingBuffer和真正的VertexBuffer
+        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+        // 把数据拷贝到顶点缓存区中
+        void* data;
+        vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+        memcpy(data, inVertices.data(), (size_t)bufferSize);
+        vkUnmapMemory(device, stagingBufferMemory);
+
+        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, outBuffer, outMemory);
+
+        copyBuffer(stagingBuffer, outBuffer, bufferSize);
+
+        vkDestroyBuffer(device, stagingBuffer, nullptr);
+        vkFreeMemory(device, stagingBufferMemory, nullptr);
+    }
+
+    /**创建点序缓存区IBO*/
+    void createIndexBuffer(VkBuffer& outBuffer, VkDeviceMemory& outMemory, const std::vector<uint32_t>& inIndices)
+    {
+        VkDeviceSize bufferSize = sizeof(inIndices[0]) * inIndices.size();
+
+        VkBuffer stagingBuffer;
+        VkDeviceMemory stagingBufferMemory;
+        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+        void* data;
+        vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+        memcpy(data, inIndices.data(), (size_t)bufferSize);
+        vkUnmapMemory(device, stagingBufferMemory);
+
+        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, outBuffer, outMemory);
+
+        copyBuffer(stagingBuffer, outBuffer, bufferSize);
+
+        vkDestroyBuffer(device, stagingBuffer, nullptr);
+        vkFreeMemory(device, stagingBufferMemory, nullptr);
+    }
+    
+    /** 更新统一缓存区UBO*/
+    void updateUniformBuffer(uint32_t currentImage)
+    {
+        static auto startTime = std::chrono::high_resolution_clock::now();
+
+        auto currentTime = std::chrono::high_resolution_clock::now();
+        float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+        UniformBufferObject ubo{};
+        ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
+        ubo.proj[1][1] *= -1;
+
+        void* data;
+        vkMapMemory(device, uniformBuffersMemory[currentImage], 0, sizeof(ubo), 0, &data);
+        memcpy(data, &ubo, sizeof(ubo));
+        vkUnmapMemory(device, uniformBuffersMemory[currentImage]);
+    }
+    
 	void createDescriptorSetLayout(VkDescriptorSetLayout& outDescriptorSetLayout, uint32_t sampler_number = 1)
 	{
 		// UnifromBufferObject（ubo）绑定
@@ -1304,6 +1369,24 @@ protected:
 		}
 	}
 
+    /** 创建Shader模块*/
+    VkShaderModule createShaderModule(const std::vector<char>& code)
+    {
+        VkShaderModuleCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+        createInfo.codeSize = code.size();
+        createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
+
+        VkShaderModule shaderModule;
+        if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS)
+        {
+            throw std::runtime_error("failed to create shader module!");
+        }
+
+        return shaderModule;
+    }
+
+    /**创建图形渲染管线*/
 	void createGraphicsPipeline(VkPipelineLayout& outPipelineLayout, VkPipeline& outGraphicsPipeline, const VkDescriptorSetLayout& inDescriptorSetLayout, const std::string& vert_filename, const std::string& frag_filename,
 		VkBool32 bDepthTest = VK_TRUE, VkCullModeFlags CullMode = VK_CULL_MODE_BACK_BIT)
 	{
@@ -1446,31 +1529,6 @@ protected:
 
 		vkDestroyShaderModule(device, fragShaderModule, nullptr);
 		vkDestroyShaderModule(device, vertShaderModule, nullptr);
-	}
-
-	void createVertices(std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices, const std::string& filename)
-	{
-		readModelResource(filename, outVertices, outIndices);
-	}
-
-	/** 更新统一缓存区*/
-	void updateUniformBuffer(uint32_t currentImage)
-	{
-		static auto startTime = std::chrono::high_resolution_clock::now();
-
-		auto currentTime = std::chrono::high_resolution_clock::now();
-		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
-		UniformBufferObject ubo{};
-		ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-		ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-		ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
-		ubo.proj[1][1] *= -1;
-
-		void* data;
-		vkMapMemory(device, uniformBuffersMemory[currentImage], 0, sizeof(ubo), 0, &data);
-		memcpy(data, &ubo, sizeof(ubo));
-		vkUnmapMemory(device, uniformBuffersMemory[currentImage]);
 	}
 
 	/** 读取一个贴图路径，然后创建图像资源*/
@@ -1755,55 +1813,6 @@ protected:
 		}
 	}
 
-
-	void createVertexBuffer(VkBuffer& outBuffer, VkDeviceMemory& outMemory, const std::vector<Vertex>& inVertices)
-	{
-		// 根据vertices大小创建VertexBuffer
-		VkDeviceSize bufferSize = sizeof(inVertices[0]) * inVertices.size();
-
-		// 为什么需要stagingBuffer，因为直接创建VertexBuffer，CPU端可以直接通过vertexBufferMemory范围GPU使用的内存，这样太危险了，
-		// 所以我们先创建一个临时的Buffer写入数据，然后将这个Buffer拷贝给最终的VertexBuffer，
-		// VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT标签，使得最终的VertexBuffer位于硬件本地内存中，比如显卡的显存。
-		VkBuffer stagingBuffer;
-		VkDeviceMemory stagingBufferMemory;
-		// 通用函数用来创建VertexBuffer，这样可以方便创建StagingBuffer和真正的VertexBuffer
-		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-
-		// 把数据拷贝到顶点缓存区中
-		void* data;
-		vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-		memcpy(data, inVertices.data(), (size_t)bufferSize);
-		vkUnmapMemory(device, stagingBufferMemory);
-
-		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, outBuffer, outMemory);
-
-		copyBuffer(stagingBuffer, outBuffer, bufferSize);
-
-		vkDestroyBuffer(device, stagingBuffer, nullptr);
-		vkFreeMemory(device, stagingBufferMemory, nullptr);
-	}
-
-	void createIndexBuffer(VkBuffer& outBuffer, VkDeviceMemory& outMemory, const std::vector<uint32_t>& inIndices)
-	{
-		VkDeviceSize bufferSize = sizeof(inIndices[0]) * inIndices.size();
-
-		VkBuffer stagingBuffer;
-		VkDeviceMemory stagingBufferMemory;
-		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-
-		void* data;
-		vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-		memcpy(data, inIndices.data(), (size_t)bufferSize);
-		vkUnmapMemory(device, stagingBufferMemory);
-
-		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, outBuffer, outMemory);
-
-		copyBuffer(stagingBuffer, outBuffer, bufferSize);
-
-		vkDestroyBuffer(device, stagingBuffer, nullptr);
-		vkFreeMemory(device, stagingBufferMemory, nullptr);
-	}
-
 private:
 	/** 将编译的着色器二进制SPV文件，读入内存Buffer中*/
 	static std::vector<char> readShaderSource(const std::string& filename)
@@ -1826,6 +1835,7 @@ private:
 		return buffer;
 	}
 
+    /** 从图片文件中读取贴像素信息*/
 	static stbi_uc* readTextureResource(const std::string& filename, int& texWidth, int& texHeight, int& texChannels)
 	{
 		stbi_uc* pixels = stbi_load(filename.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
@@ -1836,6 +1846,7 @@ private:
 		return pixels;
 	}
 
+    /** 从模型文件中读取贴顶点信息*/
 	static void readModelResource(const std::string& filename, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices)
 	{
 		tinyobj::attrib_t attrib;
