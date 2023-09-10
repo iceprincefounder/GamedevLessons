@@ -36,7 +36,6 @@ function(buildProject PROJECT_NAME)
 	VERBATIM
 	COMMENT "Compiling Shaders!"
 	COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURE_SRC}/botw_mifa.png ${TEXTURE_DIR}/botw_mifa.png
-	COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURE_SRC}/background.png ${TEXTURE_DIR}/background.png
 	COMMENT "Copying Textures!"
     )
 

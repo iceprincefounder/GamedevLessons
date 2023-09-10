@@ -39,12 +39,23 @@ function(buildProject PROJECT_NAME)
     DEPENDS ${SHADERS_SRC} ${SHADER_SOURCES}
 	VERBATIM
 	COMMENT "Compiling Shaders!"
-    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/viking_room.png ${TEXTURES_DIR}/viking_room.png
-    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/hylian_shield_basecolor.png ${TEXTURES_DIR}/hylian_shield_basecolor.png
-    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/master_sword_basecolor.png ${TEXTURES_DIR}/master_sword_basecolor.png
-	COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/steath_basecolor.png ${TEXTURES_DIR}/steath_basecolor.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/background.png ${TEXTURES_DIR}/background.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/hylian_shield_c.png ${TEXTURES_DIR}/hylian_shield_c.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/hylian_shield_m.png ${TEXTURES_DIR}/hylian_shield_m.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/hylian_shield_r.png ${TEXTURES_DIR}/hylian_shield_r.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/hylian_shield_n.png ${TEXTURES_DIR}/hylian_shield_n.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/hylian_shield_o.png ${TEXTURES_DIR}/hylian_shield_o.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/master_sword_c.png ${TEXTURES_DIR}/master_sword_c.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/master_sword_m.png ${TEXTURES_DIR}/master_sword_m.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/master_sword_r.png ${TEXTURES_DIR}/master_sword_r.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/master_sword_n.png ${TEXTURES_DIR}/master_sword_n.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/master_sword_o.png ${TEXTURES_DIR}/master_sword_o.png
+	COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/steath_c.png ${TEXTURES_DIR}/steath_c.png
+	COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/steath_m.png ${TEXTURES_DIR}/steath_m.png
+	COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/steath_r.png ${TEXTURES_DIR}/steath_r.png
+	COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/steath_n.png ${TEXTURES_DIR}/steath_n.png
+	COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/steath_o.png ${TEXTURES_DIR}/steath_o.png
 	COMMENT "Copying Textures!"
-	COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/viking_room.obj ${MODELS_DIR}/viking_room.obj
     COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/hylian_shield.obj ${MODELS_DIR}/hylian_shield.obj
     COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/master_sword.obj ${MODELS_DIR}/master_sword.obj
     COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/steath.obj ${MODELS_DIR}/steath.obj
