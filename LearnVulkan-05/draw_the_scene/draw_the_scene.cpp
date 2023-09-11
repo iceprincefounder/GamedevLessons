@@ -81,7 +81,6 @@ namespace std {
 	};
 }
 
-
 /** 物体的MVP矩阵信息*/
 struct UniformBufferObject {
 	glm::mat4 model;
@@ -89,7 +88,7 @@ struct UniformBufferObject {
 	glm::mat4 proj;
 };
 
-const std::vector<const char*> validationLayers = { "VK_LAYER_KHRONOS_validation" };
+const std::vector<const char*> validationLayers = { "VK_LAYER_KHRONOS_validation" }; // VK_LAYER_KHRONOS_validation这个是固定的，不能重命名
 const std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
 #ifdef NDEBUG
@@ -145,21 +144,116 @@ public:
 	/** 主函数调用接口*/
 	void mainTask()
 	{
-		initWindow();   // 使用传统的GLFW，初始化窗口
-		initVulkan();   // 初始化Vulkan，创建资源
-		mainTick();     // 每帧循环调用，执行渲染指令
-		destory();      // 渲染窗口关闭时，删除创建的资源
+		initWindow();		// 使用传统的GLFW，初始化窗口
+		initVulkan();		// 初始化Vulkan，创建资源
+		mainTick();			// 每帧循环调用，执行渲染指令
+		destoryWindow();	// 渲染窗口关闭时，删除创建的资源
 	}
 
+private:
+	/** 渲染一个模型需要的所有Vulkan资源*/
+	struct StageObject {
+		std::vector<Vertex> vertices;		// 顶点
+		std::vector<uint32_t> indices;		// 点序
+		VkBuffer vertexBuffer;				// 顶点缓存
+		VkDeviceMemory vertexBufferMemory;	// 顶点缓存内存
+		VkBuffer indexBuffer;				// 点序缓存
+		VkDeviceMemory indexBufferMemory;	// 点序缓存内存
+
+		std::vector<VkImage> textureImages;					// 贴图
+		std::vector<VkDeviceMemory> textureImageMemorys;	// 贴图内存
+		std::vector<VkImageView> textureImageViews;			// 贴图视口
+		std::vector<VkSampler> textureSamplers;				// 贴图采样器
+
+		VkDescriptorPool descriptorPool;				// 描述符池
+		std::vector<VkDescriptorSet> descriptorSets;	// 描述符集合
+	};
+
+	/** 构建一个渲染管线需要的Vulkan资源*/
+	struct RenderPipeline {
+		VkDescriptorSetLayout descriptorSetLayout;  // 描述符集合布局
+		VkPipelineLayout pipelineLayout;            // 渲染管线布局
+		VkPipeline graphicsPipeline;                // 渲染管线
+	};
+
+	/** 全局常量*/
+	struct GlobalConstants {
+		float time;
+	} global;
+
+	GLFWwindow* window;									// Window 渲染桌面
+
+	VkInstance instance;								// 链接程序的Vulkan实例
+	VkDebugUtilsMessengerEXT debugMessenger;
+	VkSurfaceKHR surface;								// 链接桌面和Vulkan的实例
+
+	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;	// 物理显卡硬件
+	VkDevice device;									// 逻辑硬件，对接物理硬件
+
+	VkQueue graphicsQueue;                              // 显卡的队列
+	VkQueue presentQueue;                               // 显示器的队列
+
+	VkSwapchainKHR swapChain;							// 缓存渲染图像队列，同步到显示器
+	std::vector<VkImage> swapChainImages;				// 渲染图像队列
+	VkFormat swapChainImageFormat;						// 渲染图像格式
+	VkExtent2D swapChainExtent;							// 渲染图像范围
+	std::vector<VkImageView> swapChainImageViews;		// 渲染图像队列对应的视图队列
+	std::vector<VkFramebuffer> swapChainFramebuffers;	// 渲染图像队列对应的帧缓存队列
+
+	VkImage depthImage;									// 深度纹理资源
+	VkDeviceMemory depthImageMemory;					// 深度纹理内存
+	VkImageView depthImageView;							// 深度纹理图像
+
+	std::vector<VkBuffer> uniformBuffers;				// 统一缓存区
+	std::vector<VkDeviceMemory> uniformBuffersMemory;	// 统一缓存区内存地址
+
+	VkImage textureImage;								// 纹理资源
+	VkDeviceMemory textureImageMemory;					// 纹理资源内存
+	VkImageView textureImageView;						// 纹理资源对应的视口
+	VkSampler textureSampler;							// 纹理采样器
+
+	VkRenderPass renderPass;							// 渲染层，保存Framebuffer和采样信息
+	VkDescriptorSetLayout descriptorSetLayout;			// 描述符集合配置，在渲染管线创建时指定
+	VkDescriptorPool descriptorPool;					// 描述符池，存放描述符
+	std::vector<VkDescriptorSet> descriptorSets;		// 描述符集合，描述符使得着色器可以自由的访问缓存和图片
+	VkPipelineLayout pipelineLayout;					// 管线布局，可以创建和绑定VertexBuffer和UniformBuffer
+	VkPipeline graphicsPipeline;						// 图形渲染管线
+
+	std::vector<StageObject> stageScene;                // 场景数据，包含顶点和贴图等信息
+	RenderPipeline stagePipeline;                       // 场景渲染管线，定义了着色器和描述符布局
+
+	VkCommandPool commandPool;							// 指令池
+	VkCommandBuffer commandBuffer;						// 指令缓存
+
+	VkSemaphore imageAvailableSemaphore;                // 图像是否完成的信号
+	VkSemaphore renderFinishedSemaphore;                // 渲染是否结束的信号
+	VkFence inFlightFence;                              // 围栏，下一帧渲染前等待上一帧全部渲染完成
+
+	std::vector<VkCommandBuffer> commandBuffers;		// 指令缓存
+	std::vector<VkSemaphore> imageAvailableSemaphores;	// 图像是否完成的信号
+	std::vector<VkSemaphore> renderFinishedSemaphores;	// 渲染是否结束的信号
+	std::vector<VkFence> inFlightFences;				// 围栏，下一帧渲染前等待上一帧全部渲染完成
+	uint32_t currentFrame = 0;                          // 当前渲染帧序号
+
+	bool framebufferResized = false;
+
+public:
 	/** 初始化GUI渲染窗口*/
 	void initWindow()
 	{
 		glfwInit();
 
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE); // 打开窗口的Resize功能
 
-		window = glfwCreateWindow(WIDTH, HEIGHT, "LearnVulkan-05: Draw the Scene", nullptr, nullptr);
+		window = glfwCreateWindow(WIDTH, HEIGHT, "LearnVulkan-05: Draw the Scene", nullptr /* glfwGetPrimaryMonitor() 全屏模式*/, nullptr);
+		glfwSetWindowUserPointer(window, this);
+		glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+	}
+
+	static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
+		auto app = reinterpret_cast<VulkanRendererApp*>(glfwGetWindowUserPointer(window));
+		app->framebufferResized = true;
 	}
 
 	/** 初始化Vulkan的渲染管线*/
@@ -173,9 +267,9 @@ public:
 		createSwapChain();          // 创建交换链，用于渲染数据和图像显示的中间交换
 		createImageViews();         // 创建图像显示，包含在SwapChain中
 		createRenderPass();         // 创建渲染通道
+		createCommandPool();        // 创建指令池，存储所有的渲染指令
 		createDescriptorSetLayout();// 定义描述符默认布局，用来渲染背景
 		createGraphicsPipeline();   // 创建默认图形渲染管线，用来渲染背景
-		createCommandPool();        // 创建指令池，存储所有的渲染指令
 		createDepthResources();		// 创建深度纹理资源
 		createFramebuffers();       // 创建帧缓存，包含在SwaoChain中
 		createUniformBuffers();		// 创建UnifromBuffer统一缓存区
@@ -196,25 +290,27 @@ public:
 		vkDeviceWaitIdle(device);
 	}
 
-	/** 清除Vulkan的渲染管线*/
-	void destory()
-	{
-		destoryVulkan(); // 删除Vulkan对象
-
-		glfwDestroyWindow(window);
-		glfwTerminate();
-	}
-
 	/** 在创建好一切必要资源后，执行绘制操作*/
 	void drawFrame()
 	{
 		// 等待上一帧绘制完成
 		vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
-		updateUniformBuffer(currentFrame); // 更新统一缓存区（UBO）
-		vkResetFences(device, 1, &inFlightFences[currentFrame]);
 
 		uint32_t imageIndex;
-		vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+		VkResult result = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+
+		// 当窗口过期时（窗口尺寸改变或者窗口最小化后又重新显示），需要重新创建SwapChain并且停止这一帧的绘制
+		if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+			recreateSwapChain();
+			return;
+		}
+		else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+			throw std::runtime_error("failed to acquire swap chain image!");
+		}
+
+		// 更新统一缓存区（UBO）
+		updateUniformBuffer(currentFrame);
+		vkResetFences(device, 1, &inFlightFences[currentFrame]);
 
 		// 清除渲染指令缓存
 		vkResetCommandBuffer(commandBuffers[currentFrame], /*VkCommandBufferResetFlagBits*/ 0);
@@ -259,83 +355,15 @@ public:
 		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 	}
 
-private:
-	struct StageObject {
-		std::vector<Vertex> vertices;		// 顶点
-		std::vector<uint32_t> indices;		// 点序
-		VkBuffer vertexBuffer;				// 顶点缓存
-		VkDeviceMemory vertexBufferMemory;	// 顶点缓存内存
-		VkBuffer indexBuffer;				// 点序缓存
-		VkDeviceMemory indexBufferMemory;	// 点序缓存内存
+	/** 清除Vulkan的渲染管线*/
+	void destoryWindow()
+	{
+		cleanupSwapChain(); // 清理FrameBuffer相关的资源
+		destoryVulkan(); // 删除Vulkan对象
 
-		std::vector<VkImage> textureImages;					// 贴图
-		std::vector<VkDeviceMemory> textureImageMemorys;	// 贴图内存
-		std::vector<VkImageView> textureImageViews;			// 贴图视口
-		std::vector<VkSampler> textureSamplers;				// 贴图采样器
-
-		VkDescriptorPool descriptorPool;				// 描述符池
-		std::vector<VkDescriptorSet> descriptorSets;	// 描述符集合
-	};
-
-    struct RenderPipeline {
-        VkDescriptorSetLayout descriptorSetLayout;  // 描述符集合布局
-        VkPipelineLayout pipelineLayout;            // 渲染管线布局
-        VkPipeline graphicsPipeline;                // 渲染管线
-    };
-
-    GLFWwindow* window;									// Window 渲染桌面
-
-	VkInstance instance;								// 链接程序的Vulkan实例
-	VkDebugUtilsMessengerEXT debugMessenger;
-	VkSurfaceKHR surface;								// 链接桌面和Vulkan的实例
-
-	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;	// 物理显卡硬件
-	VkDevice device;									// 逻辑硬件，对接物理硬件
-
-	VkQueue graphicsQueue;                              // 显卡的队列
-	VkQueue presentQueue;                               // 显示器的队列
-
-	VkSwapchainKHR swapChain;							// 缓存渲染图像队列，同步到显示器
-	std::vector<VkImage> swapChainImages;				// 渲染图像队列
-	VkFormat swapChainImageFormat;						// 渲染图像格式
-	VkExtent2D swapChainExtent;							// 渲染图像范围
-	std::vector<VkImageView> swapChainImageViews;		// 渲染图像队列对应的视图队列
-	std::vector<VkFramebuffer> swapChainFramebuffers;	// 渲染图像队列对应的帧缓存队列
-
-	VkImage depthImage;									// 深度纹理资源
-	VkDeviceMemory depthImageMemory;					// 深度纹理内存
-	VkImageView depthImageView;							// 深度纹理图像
-
-	std::vector<StageObject> stageScene;                // 场景数据，包含顶点和贴图等信息
-	RenderPipeline stagePipeline;                       // 场景渲染管线，定义了着色器和描述符布局
-
-	std::vector<VkBuffer> uniformBuffers;				// 统一缓存区
-	std::vector<VkDeviceMemory> uniformBuffersMemory;	// 统一缓存区内存地址
-
-	VkImage textureImage;								// 纹理资源
-	VkDeviceMemory textureImageMemory;					// 纹理资源内存
-	VkImageView textureImageView;						// 纹理资源对应的视口
-	VkSampler textureSampler;							// 纹理采样器
-
-	VkRenderPass renderPass;							// 渲染层，保存Framebuffer和采样信息
-	VkDescriptorSetLayout descriptorSetLayout;			// 描述符集合配置，在渲染管线创建时指定
-	VkDescriptorPool descriptorPool;					// 描述符池，存放描述符
-	std::vector<VkDescriptorSet> descriptorSets;		// 描述符集合，描述符使得着色器可以自由的访问缓存和图片
-	VkPipelineLayout pipelineLayout;					// 管线布局，可以创建和绑定VertexBuffer和UniformBuffer
-	VkPipeline graphicsPipeline;						// 图形渲染管线
-
-	VkCommandPool commandPool;							// 指令池
-	VkCommandBuffer commandBuffer;						// 指令缓存
-
-	VkSemaphore imageAvailableSemaphore;                // 图像是否完成的信号
-	VkSemaphore renderFinishedSemaphore;                // 渲染是否结束的信号
-	VkFence inFlightFence;                              // 围栏，下一帧渲染前等待上一帧全部渲染完成
-
-	std::vector<VkCommandBuffer> commandBuffers;		// 指令缓存
-	std::vector<VkSemaphore> imageAvailableSemaphores;	// 图像是否完成的信号
-	std::vector<VkSemaphore> renderFinishedSemaphores;	// 渲染是否结束的信号
-	std::vector<VkFence> inFlightFences;				// 围栏，下一帧渲染前等待上一帧全部渲染完成
-	uint32_t currentFrame = 0;                          // 当前渲染帧序号
+		glfwDestroyWindow(window);
+		glfwTerminate();
+	}
 
 protected:
 	/** 创建程序和Vulkan之间的连接，涉及程序和显卡驱动之间特殊细节*/
@@ -358,7 +386,7 @@ protected:
 		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 		createInfo.pApplicationInfo = &appInfo;
 
-		/** 获取需要的glfw拓展名*/
+		// 获取需要的glfw拓展名
 		uint32_t glfwExtensionCount = 0;
 		const char** glfwExtensions;
 		glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
@@ -568,6 +596,44 @@ protected:
 		swapChainExtent = extent;
 	}
 
+	/** 重新创建SwapChain*/
+	void recreateSwapChain() 
+	{
+		// 当窗口长宽都是零时，说明窗口被最小化了，这时需要等待
+		int width = 0, height = 0;
+		glfwGetFramebufferSize(window, &width, &height);
+		while (width == 0 || height == 0) {
+			glfwGetFramebufferSize(window, &width, &height);
+			glfwWaitEvents();
+		}
+
+		vkDeviceWaitIdle(device);
+
+		cleanupSwapChain();
+
+		createSwapChain();
+		createImageViews();
+		createDepthResources();
+		createFramebuffers();
+	}
+
+	/** 清理旧的SwapChain*/
+	void cleanupSwapChain() {
+		vkDestroyImageView(device, depthImageView, nullptr);
+		vkDestroyImage(device, depthImage, nullptr);
+		vkFreeMemory(device, depthImageMemory, nullptr);
+
+		for (auto framebuffer : swapChainFramebuffers) {
+			vkDestroyFramebuffer(device, framebuffer, nullptr);
+		}
+
+		for (auto imageView : swapChainImageViews) {
+			vkDestroyImageView(device, imageView, nullptr);
+		}
+
+		vkDestroySwapchainKHR(device, swapChain, nullptr);
+	}
+
 	/** 图像视图 Image View
 	 * 将视图显示为图像
 	 * ImageView定义了SwapChain里定义的图像是什么样的
@@ -617,10 +683,9 @@ protected:
 		depthAttachmentRef.attachment = 1;
 		depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-		/** 渲染子通道 SubPass
-		 * SubPass是RenderPass的下属任务，和RenderPass共享Framebuffer等渲染资源
-		 * 某些渲染操作，比如后处理的Blooming，当前渲染需要依赖上一个渲染结果，但是渲染资源不变，这是SubPass可以优化性能
-		*/
+		// 渲染子通道 SubPass
+		// SubPass是RenderPass的下属任务，和RenderPass共享Framebuffer等渲染资源
+		// 某些渲染操作，比如后处理的Blooming，当前渲染需要依赖上一个渲染结果，但是渲染资源不变，这是SubPass可以优化性能
 		VkSubpassDescription subpass{};
 		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 		subpass.colorAttachmentCount = 1;
@@ -635,7 +700,7 @@ protected:
 		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-		/** 这里将渲染三角形的操作，简化成一个SubPass提交*/
+		// 这里将渲染三角形的操作，简化成一个SubPass提交
 		std::array<VkAttachmentDescription, 2> attachments = { colorAttachment, depthAttachment };
 		VkRenderPassCreateInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -648,6 +713,22 @@ protected:
 
 		if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create render pass!");
+		}
+	}
+
+	/** 创建指令池，管理所有的指令，比如DrawCall或者内存交换等*/
+	void createCommandPool()
+	{
+		QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
+
+		VkCommandPoolCreateInfo poolInfo{};
+		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+		poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
+
+		if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create command pool!");
 		}
 	}
 
@@ -690,22 +771,6 @@ protected:
 		}
 	}
 
-	/** 创建指令池，管理所有的指令，比如DrawCall或者内存交换等*/
-	void createCommandPool()
-	{
-		QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
-
-		VkCommandPoolCreateInfo poolInfo{};
-		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-		poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
-
-		if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to create command pool!");
-		}
-	}
-
 	/** 创建深度纹理资源*/
 	void createDepthResources()
 	{
@@ -715,7 +780,7 @@ protected:
 		createImageView(depthImageView, depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 	}
 
-
+	/** 创建统一缓存区（UBO）*/
 	void createUniformBuffers()
 	{
 		VkDeviceSize bufferSize = sizeof(UniformBufferObject);
@@ -726,7 +791,7 @@ protected:
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 			createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i]);
 
-			// 这里会导致 memory stack overflow，不应该在这里 vkMapMemory
+			// 这里会导致 memory stack overflow ，不应该在这里 vkMapMemory
 			//vkMapMemory(device, uniformBuffersMemory[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
 		}
 	}
@@ -766,7 +831,7 @@ protected:
 		createDescriptorSetLayout(stagePipeline.descriptorSetLayout, layout_size);
 		createGraphicsPipeline(stagePipeline.pipelineLayout, stagePipeline.graphicsPipeline, stagePipeline.descriptorSetLayout, "ShaderCaches/draw_the_scene_vert.spv", "ShaderCaches/draw_the_scene_frag.spv");
 
-		// 创建场景，包括VBO和UBO等
+		//~ 开始 创建场景，包括VBO，UBO，贴图等
 		StageObject hylian_shield;
 		std::string hylian_shield_obj = "Models/hylian_shield.obj";
 		std::vector<std::string> hylian_shield_pngs = { "Textures/hylian_shield_o.png", "Textures/hylian_shield_c.png" };
@@ -785,9 +850,10 @@ protected:
 		stageScene.push_back(hylian_shield);
 		stageScene.push_back(master_sword);
 		stageScene.push_back(steath);
+		//~ 结束 创建场景，包括VBO，UBO，贴图等
 	}
 
-	/** 创建指令缓存*/
+	/** 创建指令缓存，多个CPU Core可以并行的往CommandBuffer中发送指令，可以充分利用CPU的多核性能*/
 	void createCommandBuffer()
 	{
 		commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
@@ -808,7 +874,6 @@ protected:
 	{
 		VkCommandBufferBeginInfo beginInfo{};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
 
 		// 开始记录指令
 		if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
@@ -847,13 +912,16 @@ protected:
         scissor.offset = { 0, 0 };
         scissor.extent = swapChainExtent;
 
+		// 设置渲染视口
         vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
+		// 设置视口剪切，是否可以通过这个函数来实现 Tiled-Based Rendering？
 		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-		// 渲染背景
+		// 渲染背景面片
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
+		vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(GlobalConstants), &global);
 		vkCmdDraw(commandBuffer, 6, 1, 0, 0);
 
 		// 渲染场景
@@ -866,13 +934,14 @@ protected:
 			vkCmdBindVertexBuffers(commandBuffer, 0, 1, objectVertexBuffers, objectOffsets);
 			vkCmdBindIndexBuffer(commandBuffer, stageObject.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, stagePipeline.pipelineLayout, 0, 1, &stageObject.descriptorSets[currentFrame], 0, nullptr);
+			vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(GlobalConstants), &global);
 			vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(stageObject.indices.size()), 1, 0, 0, 0);
 		}
 
         // 结束RenderPass
 		vkCmdEndRenderPass(commandBuffer);
 
-        // 开始记录指令
+        // 结束记录指令
 		if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to record command buffer!");
@@ -913,16 +982,6 @@ protected:
 			vkDestroyFence(device, inFlightFences[i], nullptr);
 		}
 
-		for (auto framebuffer : swapChainFramebuffers) {
-			vkDestroyFramebuffer(device, framebuffer, nullptr);
-		}
-
-		for (auto imageView : swapChainImageViews) {
-			vkDestroyImageView(device, imageView, nullptr);
-		}
-
-		vkDestroySwapchainKHR(device, swapChain, nullptr);
-
 		vkDestroyRenderPass(device, renderPass, nullptr);
 
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -941,10 +1000,6 @@ protected:
 		vkDestroySampler(device, textureSampler, nullptr);
 		vkDestroyImage(device, textureImage, nullptr);
 		vkFreeMemory(device, textureImageMemory, nullptr);
-
-		vkDestroyImageView(device, depthImageView, nullptr);
-		vkFreeMemory(device, depthImageMemory, nullptr);
-		vkDestroyImage(device, depthImage, nullptr);
 
 		vkDestroyDescriptorSetLayout(device, stagePipeline.descriptorSetLayout, nullptr);
 		vkDestroyPipelineLayout(device, stagePipeline.pipelineLayout, nullptr);
@@ -1140,7 +1195,6 @@ protected:
 		return queue_family_indices;
 	}
 
-
 	/** 找到物理硬件支持的图片格式*/
 	VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
 		for (VkFormat format : candidates) {
@@ -1248,7 +1302,7 @@ protected:
 		vkBindBufferMemory(device, buffer, bufferMemory, 0);
 	}
 
-	/** 拷贝Buffer*/
+	/** 通用函数用来拷贝Buffer*/
 	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
 	{
 		VkCommandBuffer commandBuffer = beginSingleTimeCommands();
@@ -1260,13 +1314,13 @@ protected:
 		endSingleTimeCommands(commandBuffer);
 	}
 
-    /**从文件中读取顶点和点序*/
+    /** 从文件中读取顶点和点序*/
     void createVertices(std::vector<Vertex>& outVertices, std::vector<uint32_t>& outIndices, const std::string& filename)
     {
         readModelResource(filename, outVertices, outIndices);
     }
 
-    /**创建顶点缓存区VBO*/
+    /** 创建顶点缓存区VBO*/
     void createVertexBuffer(VkBuffer& outBuffer, VkDeviceMemory& outMemory, const std::vector<Vertex>& inVertices)
     {
         // 根据vertices大小创建VertexBuffer
@@ -1294,7 +1348,7 @@ protected:
         vkFreeMemory(device, stagingBufferMemory, nullptr);
     }
 
-    /**创建点序缓存区IBO*/
+    /** 创建点序缓存区IBO*/
     void createIndexBuffer(VkBuffer& outBuffer, VkDeviceMemory& outMemory, const std::vector<uint32_t>& inIndices)
     {
         VkDeviceSize bufferSize = sizeof(inIndices[0]) * inIndices.size();
@@ -1316,15 +1370,16 @@ protected:
         vkFreeMemory(device, stagingBufferMemory, nullptr);
     }
     
-    /** 更新统一缓存区UBO*/
+    /** 更新统一缓存区（UBO）*/
     void updateUniformBuffer(uint32_t currentImage)
     {
         static auto startTime = std::chrono::high_resolution_clock::now();
 
         auto currentTime = std::chrono::high_resolution_clock::now();
         float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+		global.time = time;
 
-        UniformBufferObject ubo{};
+		UniformBufferObject ubo{};
         ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
@@ -1336,6 +1391,7 @@ protected:
         vkUnmapMemory(device, uniformBuffersMemory[currentImage]);
     }
     
+	/** 通用函数用来创建DescriptorSetLayout*/
 	void createDescriptorSetLayout(VkDescriptorSetLayout& outDescriptorSetLayout, uint32_t sampler_number = 1)
 	{
 		// UnifromBufferObject（ubo）绑定
@@ -1495,11 +1551,21 @@ protected:
 		dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
 		dynamicState.pDynamicStates = dynamicStates.data();
 
+		// 设置 push constants
+		VkPushConstantRange pushConstant;
+		// 这个PushConstant的范围从头开始
+		pushConstant.offset = 0;
+		pushConstant.size = sizeof(GlobalConstants);
+		// 这是个全局PushConstant，所以希望各个着色器都能访问到
+		pushConstant.stageFlags = VK_SHADER_STAGE_ALL;
+
 		// 在渲染管线创建时，指定DescriptorSetLayout，用来传UniformBuffer
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 		pipelineLayoutInfo.setLayoutCount = 1;
 		pipelineLayoutInfo.pSetLayouts = &inDescriptorSetLayout;
+		pipelineLayoutInfo.pPushConstantRanges = &pushConstant;
+		pipelineLayoutInfo.pushConstantRangeCount = 1;
 
 		// PipelineLayout可以用来创建和绑定VertexBuffer和UniformBuffer，这样可以往着色器中传递参数
 		if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &outPipelineLayout) != VK_SUCCESS)
@@ -1653,6 +1719,7 @@ protected:
 		endSingleTimeCommands(commandBuffer);
 	}
 
+	/** 将缓存拷贝到图片对象中*/
 	void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height)
 	{
 		VkCommandBuffer commandBuffer = beginSingleTimeCommands();
@@ -1677,7 +1744,7 @@ protected:
 		endSingleTimeCommands(commandBuffer);
 	}
 
-	/** 创建贴图视口*/
+	/** 创建图像视口*/
 	void createImageView(VkImageView& outImageView, const VkImage& inImage, const VkFormat& inFormat, VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT) {
 		VkImageViewCreateInfo viewInfo{};
 		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -1724,6 +1791,10 @@ protected:
 		}
 	}
 
+	/** 通用函数用来创建DescriptorPool
+	 * outDescriptorPool ：输出的DescriptorPool
+	 * sampler_num ：贴图采样器的数量
+	 */
 	void createDescriptorPool(VkDescriptorPool& outDescriptorPool, uint32_t sampler_num = 1)
 	{
 		std::vector<VkDescriptorPoolSize> poolSizes;
@@ -1747,6 +1818,7 @@ protected:
 		}
 	}
 
+	/** 函数用来创建默认的只有一份贴图的DescriptorSets*/
 	void createDescriptorSets(std::vector<VkDescriptorSet>& outDescriptorSets, const VkDescriptorPool& inDescriptorPool, const VkDescriptorSetLayout& inDescriptorSetLayout, const VkImageView& inImageView, const VkSampler& inSampler)
 	{
 		std::vector<VkImageView> imageViews;
@@ -1756,6 +1828,7 @@ protected:
 		createDescriptorSets(outDescriptorSets, inDescriptorPool, inDescriptorSetLayout, imageViews, samplers);
 	}
 
+	/** 通用函数用来创建DescriptorSets*/
 	void createDescriptorSets(std::vector<VkDescriptorSet>& outDescriptorSets, const VkDescriptorPool& inDescriptorPool, const VkDescriptorSetLayout& inDescriptorSetLayout, const std::vector<VkImageView>& inImageViews, const std::vector<VkSampler>& inSamplers)
 	{
 		std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, inDescriptorSetLayout);
@@ -1944,12 +2017,10 @@ int main()
 {
 	VulkanRendererApp app;
 
-	try
-	{
+	try{
 		app.mainTask();
 	}
-	catch (const std::exception& e)
-	{
+	catch (const std::exception& e){
 		std::cerr << e.what() << std::endl;
 		return EXIT_FAILURE;
 	}
