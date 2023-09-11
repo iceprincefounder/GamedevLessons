@@ -1,4 +1,5 @@
-﻿#define GLFW_INCLUDE_VULKAN
+﻿// Copyright LearnVulkan-02: Draw the Triangle, @xukai. All Rights Reserved.
+#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
 #include <iostream>
@@ -86,7 +87,7 @@ public:
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-        window = glfwCreateWindow(WIDTH, HEIGHT, "LearnVulkan-02: DrawTheTriangle", nullptr, nullptr);
+        window = glfwCreateWindow(WIDTH, HEIGHT, "LearnVulkan-02: Draw the Triangle", nullptr, nullptr);
     }
 
     /** 初始化Vulkan的渲染管线*/

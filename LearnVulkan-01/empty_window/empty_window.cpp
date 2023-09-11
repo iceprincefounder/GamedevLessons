@@ -1,4 +1,5 @@
-﻿#define GLFW_INCLUDE_VULKAN
+﻿// Copyright LearnVulkan-01: Empty Window, @xukai. All Rights Reserved.
+#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
 #define GLM_FORCE_RADIANS
@@ -12,7 +13,7 @@ int main() {
     glfwInit();
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    GLFWwindow* window = glfwCreateWindow(800, 600, "Vulkan Window", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(800, 600, "LearnVulkan-01: Empty Window", nullptr, nullptr);
 
     uint32_t extensionCount = 0;
     vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);

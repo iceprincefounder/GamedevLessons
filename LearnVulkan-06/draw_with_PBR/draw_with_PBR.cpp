@@ -1,4 +1,4 @@
-﻿// Copyright LearnVulkan-05: Draw the Scene, @xukai. All Rights Reserved.
+﻿// Copyright LearnVulkan-06: Draw with PBR, @xukai. All Rights Reserved.
 #define GLFW_INCLUDE_VULKAN
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE // 深度缓存区，OpenGL默认是（-1.0， 1.0）Vulakn为（0.0， 1.0）
@@ -247,7 +247,7 @@ public:
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE); // 打开窗口的Resize功能
 
-		window = glfwCreateWindow(WIDTH, HEIGHT, "LearnVulkan-05: Draw the Scene", nullptr /* glfwGetPrimaryMonitor() 全屏模式*/, nullptr);
+		window = glfwCreateWindow(WIDTH, HEIGHT, "LearnVulkan-06: Draw with PBR", nullptr /* glfwGetPrimaryMonitor() 全屏模式*/, nullptr);
 		glfwSetWindowUserPointer(window, this);
 		glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 	}

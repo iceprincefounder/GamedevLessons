@@ -1,4 +1,5 @@
-﻿#define GLFW_INCLUDE_VULKAN
+﻿// Copyright LearnVulkan-03: Draw with Buffer, @xukai. All Rights Reserved.
+#define GLFW_INCLUDE_VULKAN
 #define GLM_FORCE_RADIANS
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -147,7 +148,7 @@ public:
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-        window = glfwCreateWindow(WIDTH, HEIGHT, "LearnVulkan-03: DrawTheTriangle", nullptr, nullptr);
+        window = glfwCreateWindow(WIDTH, HEIGHT, "LearnVulkan-03: Draw the Buffer", nullptr, nullptr);
     }
 
     /** 初始化Vulkan的渲染管线*/

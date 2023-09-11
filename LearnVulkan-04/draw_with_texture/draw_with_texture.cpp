@@ -1,4 +1,5 @@
-﻿#define GLFW_INCLUDE_VULKAN
+﻿// Copyright LearnVulkan-04: Draw with Texture, @xukai. All Rights Reserved.
+#define GLFW_INCLUDE_VULKAN
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE // 深度缓存区，OpenGL默认是（-1， 1）Vulakn为（0.0， 1.0）
 #define STB_IMAGE_IMPLEMENTATION
@@ -170,7 +171,7 @@ public:
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-        window = glfwCreateWindow(WIDTH, HEIGHT, "LearnVulkan-04: Draw With Texture", nullptr, nullptr);
+        window = glfwCreateWindow(WIDTH, HEIGHT, "LearnVulkan-04: Draw with Texture", nullptr, nullptr);
     }
 
     /** 初始化Vulkan的渲染管线*/
