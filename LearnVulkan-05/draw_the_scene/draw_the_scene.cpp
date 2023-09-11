@@ -1,4 +1,4 @@
-#define GLFW_INCLUDE_VULKAN
+﻿#define GLFW_INCLUDE_VULKAN
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE // 深度缓存区，OpenGL默认是（-1.0， 1.0）Vulakn为（0.0， 1.0）
 #include <GLFW/glfw3.h>
@@ -216,7 +216,7 @@ public:
 		uint32_t imageIndex;
 		vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
-        // 清除渲染指令缓存
+		// 清除渲染指令缓存
 		vkResetCommandBuffer(commandBuffers[currentFrame], /*VkCommandBufferResetFlagBits*/ 0);
 		// 记录新的所有的渲染指令缓存
 		recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
@@ -756,7 +756,7 @@ protected:
 
 			createVertexBuffer(outStageObject.vertexBuffer, outStageObject.vertexBufferMemory, outStageObject.vertices);
 			createIndexBuffer(outStageObject.indexBuffer, outStageObject.indexBufferMemory, outStageObject.indices);
-			createDescriptorPool(outStageObject.descriptorPool, (pngfiles.size() + 1));
+			createDescriptorPool(outStageObject.descriptorPool, static_cast<uint32_t>(pngfiles.size() + 1));
 			createDescriptorSets(outStageObject.descriptorSets, outStageObject.descriptorPool, stagePipeline.descriptorSetLayout, outStageObject.textureImageViews, outStageObject.textureSamplers);
 		};
 
@@ -809,7 +809,8 @@ protected:
 		VkCommandBufferBeginInfo beginInfo{};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-        // 开始记录指令
+
+		// 开始记录指令
 		if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to begin recording command buffer!");
@@ -1410,6 +1411,7 @@ protected:
 
 		VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 
+		// 顶点缓存绑定的描述，定义了顶点都需要绑定什么数据，比如第一个位置绑定Position，第二个位置绑定Color，第三个位置绑定UV等
 		auto bindingDescription = Vertex::getBindingDescription();
 		auto attributeDescriptions = Vertex::getAttributeDescriptions();
 
