@@ -20,22 +20,22 @@ function(buildProject PROJECT_NAME)
 	endif(WIN32)
 
     set (CURRENT_WORKING_DIR ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
-	set (SHADERS_DIR ${CURRENT_WORKING_DIR}/ShaderCaches)
-	set (TEXTURE_DIR ${CURRENT_WORKING_DIR}/Textures)
 	set (SHADERS_SRC ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}/shaders)
 	set (TEXTURE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}/textures)
+	set (SHADERS_DEST ${CURRENT_WORKING_DIR}/Resources/Shaders)
+	set (TEXTURE_DEST ${CURRENT_WORKING_DIR}/Resources/Textures)
 
 	# Compile shader and copy texures
 	add_custom_command(
     OUTPUT SHADER_COMPILE
-	COMMAND ${CMAKE_COMMAND} -E make_directory ${SHADERS_DIR}
-    COMMAND glslc ARGS ${SHADERS_SRC}/${PROJECT_NAME}.frag -o ${SHADERS_DIR}/${PROJECT_NAME}_frag.spv
-    COMMAND glslc ARGS ${SHADERS_SRC}/${PROJECT_NAME}.vert -o ${SHADERS_DIR}/${PROJECT_NAME}_vert.spv
+	COMMAND ${CMAKE_COMMAND} -E make_directory ${SHADERS_DEST}
+    COMMAND glslc ARGS ${SHADERS_SRC}/${PROJECT_NAME}.frag -o ${SHADERS_DEST}/${PROJECT_NAME}_frag.spv
+    COMMAND glslc ARGS ${SHADERS_SRC}/${PROJECT_NAME}.vert -o ${SHADERS_DEST}/${PROJECT_NAME}_vert.spv
 	WORKING_DIRECTORY ${SHADERS_SRC}
     DEPENDS ${SHADERS_SRC} ${SHADER_SOURCES}
 	VERBATIM
 	COMMENT "Compiling Shaders!"
-	COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURE_SRC}/botw_mifa.png ${TEXTURE_DIR}/botw_mifa.png
+	COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURE_SRC}/botw_mifa.png ${TEXTURE_DEST}/botw_mifa.png
 	COMMENT "Copying Textures!"
     )
 

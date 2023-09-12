@@ -742,7 +742,7 @@ protected:
 	/** 创建图形渲染管线，加载着色器*/
 	void createGraphicsPipeline()
 	{
-		createGraphicsPipeline(pipelineLayout, graphicsPipeline, descriptorSetLayout, "ShaderCaches/draw_the_scene_bg_vert.spv", "ShaderCaches/draw_the_scene_bg_frag.spv", VK_FALSE, VK_CULL_MODE_NONE);
+		createGraphicsPipeline(pipelineLayout, graphicsPipeline, descriptorSetLayout, "Resources/Shaders/draw_the_scene_bg_vert.spv", "Resources/Shaders/draw_the_scene_bg_frag.spv", VK_FALSE, VK_CULL_MODE_NONE);
 	}
 
 	/** 创建帧缓存，即每帧图像对应的渲染数据*/
@@ -800,7 +800,7 @@ protected:
 	void createStageScene()
 	{
 		// 创建背景贴图
-		createImage(textureImage, textureImageMemory, "Textures/background.png");// 创建贴图资源
+		createImage(textureImage, textureImageMemory, "Resources/Textures/background.png");// 创建贴图资源
 		createImageView(textureImageView, textureImage, VK_FORMAT_R8G8B8A8_SRGB);// 创建着色器中引用的贴图View
 		createSampler(textureSampler);// 创建着色器中引用的贴图采样器
 		createDescriptorPool(descriptorPool);
@@ -830,22 +830,22 @@ protected:
 		uint32_t layout_size = 3;
 		// 创建场景渲染流水线和着色器
 		createDescriptorSetLayout(stagePipeline.descriptorSetLayout, layout_size);
-		createGraphicsPipeline(stagePipeline.pipelineLayout, stagePipeline.graphicsPipeline, stagePipeline.descriptorSetLayout, "ShaderCaches/draw_the_scene_vert.spv", "ShaderCaches/draw_the_scene_frag.spv");
+		createGraphicsPipeline(stagePipeline.pipelineLayout, stagePipeline.graphicsPipeline, stagePipeline.descriptorSetLayout, "Resources/Shaders/draw_the_scene_vert.spv", "Resources/Shaders/draw_the_scene_frag.spv");
 
 		//~ 开始 创建场景，包括VBO，UBO，贴图等
 		StageObject hylian_shield;
-		std::string hylian_shield_obj = "Models/hylian_shield.obj";
-		std::vector<std::string> hylian_shield_pngs = { "Textures/hylian_shield_o.png", "Textures/hylian_shield_c.png" };
+		std::string hylian_shield_obj = "Resources/Models/hylian_shield.obj";
+		std::vector<std::string> hylian_shield_pngs = { "Resources/Textures/hylian_shield_o.png", "Resources/Textures/hylian_shield_c.png" };
 		createStageRenderResource(hylian_shield, hylian_shield_obj, hylian_shield_pngs);
 
 		StageObject master_sword;
-		std::string master_sword_obj = "Models/master_sword.obj";
-		std::vector<std::string> master_sword_pngs = { "Textures/master_sword_o.png", "Textures/master_sword_c.png" };
+		std::string master_sword_obj = "Resources/Models/master_sword.obj";
+		std::vector<std::string> master_sword_pngs = { "Resources/Textures/master_sword_o.png", "Resources/Textures/master_sword_c.png" };
 		createStageRenderResource(master_sword, master_sword_obj, master_sword_pngs);
 
 		StageObject steath;
-		std::string steath_obj = "Models/steath.obj";
-		std::vector<std::string> steath_pngs = { "Textures/steath_o.png", "Textures/steath_c.png" };
+		std::string steath_obj = "Resources/Models/steath.obj";
+		std::vector<std::string> steath_pngs = { "Resources/Textures/steath_o.png", "Resources/Textures/steath_c.png" };
 		createStageRenderResource(steath, steath_obj, steath_pngs);
 
 		stageScene.push_back(hylian_shield);

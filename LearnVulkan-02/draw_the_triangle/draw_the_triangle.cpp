@@ -538,8 +538,8 @@ protected:
 	/** 创建图形渲染管线，加载着色器*/
 	void createGraphicsPipeline() 
 	{
-		auto vertShaderCode = readFile("ShaderCaches/draw_the_triangle_vert.spv");
-		auto fragShaderCode = readFile("ShaderCaches/draw_the_triangle_frag.spv");
+		auto vertShaderCode = readFile("Resources/Shaders/draw_the_triangle_vert.spv");
+		auto fragShaderCode = readFile("Resources/Shaders/draw_the_triangle_frag.spv");
 
 		VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
 		VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);

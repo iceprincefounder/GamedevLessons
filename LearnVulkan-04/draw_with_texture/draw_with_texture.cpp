@@ -748,8 +748,8 @@ protected:
 	/** 创建图形渲染管线，加载着色器*/
 	void createGraphicsPipeline() 
 	{
-		auto vertShaderCode = readShaderSource("ShaderCaches/draw_with_texture_vert.spv");
-		auto fragShaderCode = readShaderSource("ShaderCaches/draw_with_texture_frag.spv");
+		auto vertShaderCode = readShaderSource("Resources/Shaders/draw_with_texture_vert.spv");
+		auto fragShaderCode = readShaderSource("Resources/Shaders/draw_with_texture_frag.spv");
 
 		VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
 		VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
@@ -953,7 +953,7 @@ protected:
 	void createTextureImage() 
 	{
 		int texWidth, texHeight, texChannels;
-		stbi_uc* pixels = stbi_load("Textures/botw_mifa.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+		stbi_uc* pixels = stbi_load("Resources/Textures/botw_mifa.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 		VkDeviceSize imageSize = texWidth * texHeight * 4;
 
 		if (!pixels) {

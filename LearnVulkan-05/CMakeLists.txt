@@ -20,36 +20,38 @@ function(buildProject PROJECT_NAME)
 	endif(WIN32)
 
     set (CURRENT_WORKING_DIR ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
-	set (SHADERS_DIR ${CURRENT_WORKING_DIR}/ShaderCaches)
-	set (TEXTURES_DIR ${CURRENT_WORKING_DIR}/Textures)
-	set (MODELS_DIR ${CURRENT_WORKING_DIR}/Models)
 	set (SHADERS_SRC ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}/shaders)
 	set (TEXTURES_SRC ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}/textures)
 	set (MODELS_SRC ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}/models)
+	set (SHADERS_DEST ${CURRENT_WORKING_DIR}/Resources/Shaders)
+	set (TEXTURES_DEST ${CURRENT_WORKING_DIR}/Resources/Textures)
+	set (MODELS_DEST ${CURRENT_WORKING_DIR}/Resources/Models)
 
 	# Compile shader and copy texures
 	add_custom_command(
     OUTPUT SHADER_COMPILE
-	COMMAND ${CMAKE_COMMAND} -E make_directory ${SHADERS_DIR}
-    COMMAND glslc ARGS ${SHADERS_SRC}/${PROJECT_NAME}.frag -o ${SHADERS_DIR}/${PROJECT_NAME}_frag.spv
-    COMMAND glslc ARGS ${SHADERS_SRC}/${PROJECT_NAME}.vert -o ${SHADERS_DIR}/${PROJECT_NAME}_vert.spv
-    COMMAND glslc ARGS ${SHADERS_SRC}/${PROJECT_NAME}_bg.frag -o ${SHADERS_DIR}/${PROJECT_NAME}_bg_frag.spv
-    COMMAND glslc ARGS ${SHADERS_SRC}/${PROJECT_NAME}_bg.vert -o ${SHADERS_DIR}/${PROJECT_NAME}_bg_vert.spv
+	COMMAND ${CMAKE_COMMAND} -E make_directory ${SHADERS_DEST}
+    COMMAND glslc ARGS ${SHADERS_SRC}/${PROJECT_NAME}.frag -o ${SHADERS_DEST}/${PROJECT_NAME}_frag.spv
+    COMMAND glslc ARGS ${SHADERS_SRC}/${PROJECT_NAME}.vert -o ${SHADERS_DEST}/${PROJECT_NAME}_vert.spv
+    COMMAND glslc ARGS ${SHADERS_SRC}/${PROJECT_NAME}_bg.frag -o ${SHADERS_DEST}/${PROJECT_NAME}_bg_frag.spv
+    COMMAND glslc ARGS ${SHADERS_SRC}/${PROJECT_NAME}_bg.vert -o ${SHADERS_DEST}/${PROJECT_NAME}_bg_vert.spv
 	WORKING_DIRECTORY ${SHADERS_SRC}
     DEPENDS ${SHADERS_SRC} ${SHADER_SOURCES}
 	VERBATIM
 	COMMENT "Compiling Shaders!"
-    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/background.png ${TEXTURES_DIR}/background.png
-    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/hylian_shield_c.png ${TEXTURES_DIR}/hylian_shield_c.png
-    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/hylian_shield_o.png ${TEXTURES_DIR}/hylian_shield_o.png
-    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/master_sword_c.png ${TEXTURES_DIR}/master_sword_c.png
-    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/master_sword_o.png ${TEXTURES_DIR}/master_sword_o.png
-	COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/steath_c.png ${TEXTURES_DIR}/steath_c.png
-	COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/steath_o.png ${TEXTURES_DIR}/steath_o.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/background.png ${TEXTURES_DEST}/background.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/hylian_shield_c.png ${TEXTURES_DEST}/hylian_shield_c.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/hylian_shield_o.png ${TEXTURES_DEST}/hylian_shield_o.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/master_sword_c.png ${TEXTURES_DEST}/master_sword_c.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/master_sword_o.png ${TEXTURES_DEST}/master_sword_o.png
+	COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/steath_c.png ${TEXTURES_DEST}/steath_c.png
+	COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/steath_o.png ${TEXTURES_DEST}/steath_o.png
+	VERBATIM
 	COMMENT "Copying Textures!"
-    COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/hylian_shield.obj ${MODELS_DIR}/hylian_shield.obj
-    COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/master_sword.obj ${MODELS_DIR}/master_sword.obj
-    COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/steath.obj ${MODELS_DIR}/steath.obj
+    COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/hylian_shield.obj ${MODELS_DEST}/hylian_shield.obj
+    COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/master_sword.obj ${MODELS_DEST}/master_sword.obj
+    COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/steath.obj ${MODELS_DEST}/steath.obj
+	VERBATIM
 	COMMENT "Copying Models!"
     )
 
