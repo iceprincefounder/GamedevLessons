@@ -12,13 +12,13 @@ layout(set = 0, binding = 0) uniform UniformBufferObject
     mat4 view;
     mat4 proj;
 } ubo;
-layout(set = 0, binding = 1) uniform sampler2D sampler1; // c 对应vkDescriptorSet第二个绑定
-layout(set = 0, binding = 2) uniform sampler2D sampler2; // m 对应vkDescriptorSet第三个绑定
-layout(set = 0, binding = 3) uniform sampler2D sampler3; // r 对应vkDescriptorSet第四个绑定
-layout(set = 0, binding = 4) uniform sampler2D sampler4; // n 对应vkDescriptorSet第五个绑定
-layout(set = 0, binding = 5) uniform sampler2D sampler5; // o 对应vkDescriptorSet第六个绑定
+layout(set = 0, binding = 1) uniform sampler2D sampler1; // c
+layout(set = 0, binding = 2) uniform sampler2D sampler2; // m
+layout(set = 0, binding = 3) uniform sampler2D sampler3; // r
+layout(set = 0, binding = 4) uniform sampler2D sampler4; // n
+layout(set = 0, binding = 5) uniform sampler2D sampler5; // o
 
-layout(location = 0) in vec2 fragPosition;
+layout(location = 0) in vec3 fragPosition;
 layout(location = 1) in vec3 fragNormal;
 layout(location = 2) in vec3 fragColor;
 layout(location = 3) in vec2 fragTexCoord;
@@ -88,45 +88,80 @@ vec3 saturate(vec3 t)
 	return clamp(t, 0.0, 1.0);
 }
 
+vec3 calcNormal()
+{
+    vec3 pos_dx = dFdx(fragPosition);
+    vec3 pos_dy = dFdy(fragPosition);
+    vec3 st1    = dFdx(vec3(fragTexCoord, 0.0));
+    vec3 st2    = dFdy(vec3(fragTexCoord, 0.0));
+    vec3 T      = (st2.t * pos_dx - st1.t * pos_dy) / (st1.s * st2.t - st2.s * st1.t);
+    vec3 N      = normalize(fragNormal);
+    T           = normalize(T - N * dot(N, T));
+    vec3 B      = normalize(cross(N, T));
+    mat3 TBN    = mat3(T, B, N);
+
+#if 0
+    vec3 n = texture(sampler4, fragTexCoord).rgb;
+    return normalize(TBN * (2.0 * n - 1.0));
+#else
+    return normalize(TBN[2].xyz);
+#endif
+}
+
+float apply_directional_light(uint index, vec3 normal)
+{
+    vec4 light = vec4(-2.0, 2.0, 2.0, 1.0);
+    vec3 world_to_light = -light.xyz;
+
+    world_to_light = normalize(world_to_light);
+
+    float ndotl = clamp(dot(normal, world_to_light), 0.0, 1.0);
+
+    return ndotl * light.w;
+}
+
 void main()
 {
-    vec3 base_color = texture(sampler1, fragTexCoord).rgb;
-    float metallic = texture(sampler2, fragTexCoord).r;
-    float roughness = texture(sampler3, fragTexCoord).r;
+    vec3 base_color = vec3(0.3); //texture(sampler1, fragTexCoord).rgb;
+    float metallic = 0.0; //saturate(texture(sampler2, fragTexCoord).r);
+    float roughness = 0.3; //saturate(texture(sampler3, fragTexCoord).r);
     vec3 normal = texture(sampler4, fragTexCoord).rgb;
     vec3 ambient_occlution = texture(sampler5, fragTexCoord).rgb;
 
 	vec3 camera_position = vec3(2.0, 2.0, 2.0); // vec3(ubo.view[12], ubo.view[13], ubo.view[14]);
-	vec3 N = normal;
+	vec3 N = calcNormal();
 	vec3 V = camera_position; //normalize(global_uniform.camera_position - in_pos);
-	vec3 L = vec3(-2.0, -2.0, 2.0);
 	float NdotV = saturate(dot(N, V));
 
 	vec3 LightContribution = vec3(0.0);
 	vec3 diffuse_color = base_color.rgb * (1.0 - metallic);
 
-	{
-		vec3 H = normalize(V + L);
-		float LdotH = saturate(dot(L, H));
-		float NdotH = saturate(dot(N, H));
-		float NdotL = saturate(dot(N, L));
+    for (uint i = 0U; i < 1; ++i)
+    {
+        vec3 L = vec3(-2.0, 2.0, 2.0);
+        vec3 H = normalize(V + L);
 
-		float F90 = saturate(50.0 * F0.r);
-		vec3 F = F_Schlick(F0, F90, LdotH);
-		float Vis = V_SmithGGXCorrelated(NdotV, NdotL, roughness);
-		float D = D_GGX(NdotH, roughness);
-		vec3 Fr = F * D * Vis;
+        float LdotH = saturate(dot(L, H));
+        float NdotH = saturate(dot(N, H));
+        float NdotL = saturate(dot(N, L));
 
-		float Fd = Fr_DisneyDiffuse(NdotV, NdotL, LdotH, roughness);
+        float F90 = saturate(50.0 * F0.r);
+        vec3  F   = F_Schlick(F0, F90, LdotH);
+        float Vis = V_SmithGGXCorrelated(NdotV, NdotL, roughness);
+        float D   = D_GGX(NdotH, roughness);
+        vec3  Fr  = F * D * Vis;
 
-		LightContribution = vec3(Fd);
-	}
+        float Fd = Fr_DisneyDiffuse(NdotV, NdotL, LdotH, roughness);
+
+        LightContribution = apply_directional_light(i, N) * (diffuse_color * (vec3(1.0) - F) * Fd + Fr);
+    }
 
 	vec3 irradiance  = vec3(0.5);
 	vec3 F = F_Schlick_Roughness(F0, max(dot(N, V), 0.0), roughness * roughness * roughness * roughness);
-	vec3 ibl_diffuse = irradiance * base_color.rgb;
-
+	//vec3 ibl_diffuse = irradiance * base_color.rgb;
+    vec3 final_color = LightContribution;
+    //vec3 final_color = ibl_diffuse; //(base_color / PI);
 	//vec3 final_color = base_color * ambient_occlution * 2.0;
-    vec3 final_color = normalize(fragNormal); //vec3(dot(fragNormal, L));
+    //vec3 final_color = vec3(dot(calcNormal(), L)); //normalize(fragPosition); //vec3(dot(fragNormal, L));
 	outColor = vec4(final_color, 1.0);
 }
