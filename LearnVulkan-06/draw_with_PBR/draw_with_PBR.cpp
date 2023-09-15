@@ -35,7 +35,8 @@ const uint32_t HEIGHT = 720;
 const int MAX_FRAMES_IN_FLIGHT = 2;
 
 struct Vertex {
-	glm::vec3 pos;
+	glm::vec3 position;
+	glm::vec3 normal;
 	glm::vec3 color;
 	glm::vec2 texCoord;
 
@@ -48,36 +49,41 @@ struct Vertex {
 		return bindingDescription;
 	}
 
-	static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
-		std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
+	static std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions() {
+		std::array<VkVertexInputAttributeDescription, 4> attributeDescriptions{};
 
 		attributeDescriptions[0].binding = 0;
 		attributeDescriptions[0].location = 0;
 		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attributeDescriptions[0].offset = offsetof(Vertex, pos);
+		attributeDescriptions[0].offset = offsetof(Vertex, position);
 
 		attributeDescriptions[1].binding = 0;
 		attributeDescriptions[1].location = 1;
 		attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attributeDescriptions[1].offset = offsetof(Vertex, color);
+		attributeDescriptions[1].offset = offsetof(Vertex, normal);
 
 		attributeDescriptions[2].binding = 0;
 		attributeDescriptions[2].location = 2;
-		attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-		attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
+		attributeDescriptions[2].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescriptions[2].offset = offsetof(Vertex, color);
+
+		attributeDescriptions[3].binding = 0;
+		attributeDescriptions[3].location = 3;
+		attributeDescriptions[3].format = VK_FORMAT_R32G32_SFLOAT;
+		attributeDescriptions[3].offset = offsetof(Vertex, texCoord);
 
 		return attributeDescriptions;
 	}
 
 	bool operator==(const Vertex& other) const {
-		return pos == other.pos && color == other.color && texCoord == other.texCoord;
+		return position == other.position && normal == other.normal && color == other.color && texCoord == other.texCoord;
 	}
 };
 
 namespace std {
 	template<> struct hash<Vertex> {
 		size_t operator()(Vertex const& vertex) const {
-			return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^ (hash<glm::vec2>()(vertex.texCoord) << 1);
+			return ((hash<glm::vec3>()(vertex.position) ^ (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^ (hash<glm::vec2>()(vertex.texCoord) << 1);
 		}
 	};
 }
@@ -833,7 +839,7 @@ protected:
 		};
 
 		// layout_size直接定义了DescriptorSets的大小，如，有一个UBO和两张贴图，那么布局的大小就是 1+2=3
-		uint32_t layout_size = 3;
+		uint32_t layout_size = 6;
 		// 创建场景渲染流水线和着色器
 		createDescriptorSetLayout(stagePipeline.descriptorSetLayout, layout_size);
 		createGraphicsPipeline(stagePipeline.pipelineLayout, stagePipeline.graphicsPipeline, stagePipeline.descriptorSetLayout, "Resources/Shaders/draw_with_PBR_vert.spv", "Resources/Shaders/draw_with_PBR_frag.spv");
@@ -841,17 +847,32 @@ protected:
 		//~ 开始 创建场景，包括VBO，UBO，贴图等
 		StageObject hylian_shield;
 		std::string hylian_shield_obj = "Resources/Models/hylian_shield.obj";
-		std::vector<std::string> hylian_shield_pngs = { "Resources/Textures/hylian_shield_o.png", "Resources/Textures/hylian_shield_c.png" };
+		std::vector<std::string> hylian_shield_pngs = { 
+			"Resources/Textures/hylian_shield_c.png",
+			"Resources/Textures/hylian_shield_m.png",
+			"Resources/Textures/hylian_shield_r.png",
+			"Resources/Textures/hylian_shield_n.png",
+			"Resources/Textures/hylian_shield_o.png"};
 		createStageRenderResource(hylian_shield, hylian_shield_obj, hylian_shield_pngs);
 
 		StageObject master_sword;
 		std::string master_sword_obj = "Resources/Models/master_sword.obj";
-		std::vector<std::string> master_sword_pngs = { "Resources/Textures/master_sword_o.png", "Resources/Textures/master_sword_c.png" };
+		std::vector<std::string> master_sword_pngs = { 
+			"Resources/Textures/master_sword_c.png",
+			"Resources/Textures/master_sword_m.png",
+			"Resources/Textures/master_sword_r.png",
+			"Resources/Textures/master_sword_n.png",
+			"Resources/Textures/master_sword_o.png"};
 		createStageRenderResource(master_sword, master_sword_obj, master_sword_pngs);
 
 		StageObject steath;
 		std::string steath_obj = "Resources/Models/steath.obj";
-		std::vector<std::string> steath_pngs = { "Resources/Textures/steath_o.png", "Resources/Textures/steath_c.png" };
+		std::vector<std::string> steath_pngs = { 
+			"Resources/Textures/steath_c.png",
+			"Resources/Textures/steath_m.png",
+			"Resources/Textures/steath_r.png",
+			"Resources/Textures/steath_n.png",
+			"Resources/Textures/steath_o.png"};
 		createStageRenderResource(steath, steath_obj, steath_pngs);
 
 		stageScene.push_back(hylian_shield);
@@ -1946,18 +1967,24 @@ private:
 			for (const auto& index : shape.mesh.indices) {
 				Vertex vertex{};
 
-				vertex.pos = {
+				vertex.position = {
 					attrib.vertices[3 * index.vertex_index + 0],
 					attrib.vertices[3 * index.vertex_index + 1],
 					attrib.vertices[3 * index.vertex_index + 2]
 				};
 
+				vertex.normal = {
+					attrib.normals[3 * index.vertex_index + 0],
+					attrib.normals[3 * index.vertex_index + 1],
+					attrib.normals[3 * index.vertex_index + 2]
+				};
+
+				vertex.color = { 1.0f, 1.0f, 1.0f };
+
 				vertex.texCoord = {
 					attrib.texcoords[2 * index.texcoord_index + 0],
 					1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
 				};
-
-				vertex.color = { 1.0f, 1.0f, 1.0f };
 
 				if (uniqueVertices.count(vertex) == 0) {
 					uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
