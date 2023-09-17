@@ -88,27 +88,29 @@ namespace std {
     };
 }
 
-struct Light
-{
-    glm::vec4 position;
-    glm::vec4 color;
-    glm::vec4 direction;
-    glm::vec2 info;
-};
 
 /** 物体的MVP矩阵信息*/
 struct UniformBufferObject {
 	glm::mat4 model;
 	glm::mat4 view;
 	glm::mat4 proj;
-	uint32_t count;
-	Light lights[4];
+};
+
+struct Light
+{
+	glm::vec4 position;
+	glm::vec4 color;
+	glm::vec4 direction;
+	glm::vec4 info;
 };
 
 /** 场景灯光信息*/
-struct LightsInfo {
-    uint32_t count;
-    Light lights[4];
+struct UniformBufferObjectView {
+	Light directional_lights[4];
+	Light point_lights[4];
+	Light spot_lights[4];
+	glm::ivec4 lights_count; // [0] for directional_lights, [1] for point_lights, [2] for spot_lights
+	glm::vec4 camera_position;
 };
 
 const std::vector<const char*> validationLayers = { "VK_LAYER_KHRONOS_validation" }; // VK_LAYER_KHRONOS_validation这个是固定的，不能重命名
@@ -227,8 +229,11 @@ private:
     VkDeviceMemory depthImageMemory;					// 深度纹理内存
     VkImageView depthImageView;							// 深度纹理图像
 
-    std::vector<VkBuffer> uniformBuffers;				// 统一缓存区
-    std::vector<VkDeviceMemory> uniformBuffersMemory;	// 统一缓存区内存地址
+    std::vector<VkBuffer> vertUniformBuffers;				// 统一缓存区
+    std::vector<VkDeviceMemory> vertUniformBuffersMemory;	// 统一缓存区内存地址
+
+	std::vector<VkBuffer> viewUniformBuffers;				// 统一缓存区
+	std::vector<VkDeviceMemory> viewUniformBuffersMemory;	// 统一缓存区内存地址
 
     VkImage textureImage;								// 纹理资源
     VkDeviceMemory textureImageMemory;					// 纹理资源内存
@@ -812,17 +817,24 @@ protected:
     /** 创建统一缓存区（UBO）*/
     void createUniformBuffers()
     {
-        VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-
-        uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-        uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+        VkDeviceSize bufferSizeOfVert = sizeof(UniformBufferObject);
+        vertUniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+        vertUniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
 
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i]);
+            createBuffer(bufferSizeOfVert, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, vertUniformBuffers[i], vertUniformBuffersMemory[i]);
 
             // 这里会导致 memory stack overflow ，不应该在这里 vkMapMemory
-            //vkMapMemory(device, uniformBuffersMemory[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
+            //vkMapMemory(device, vertUniformBuffersMemory[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
         }
+
+		VkDeviceSize bufferSizeOfView = sizeof(UniformBufferObjectView);
+        viewUniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+		viewUniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+			createBuffer(bufferSizeOfView, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, viewUniformBuffers[i], viewUniformBuffersMemory[i]);
+		}
     }
 
     void createStageScene()
@@ -1052,9 +1064,15 @@ protected:
 
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
         {
-            vkDestroyBuffer(device, uniformBuffers[i], nullptr);
-            vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
+            vkDestroyBuffer(device, vertUniformBuffers[i], nullptr);
+            vkFreeMemory(device, vertUniformBuffersMemory[i], nullptr);
         }
+
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+		{
+			vkDestroyBuffer(device, viewUniformBuffers[i], nullptr);
+			vkFreeMemory(device, viewUniformBuffersMemory[i], nullptr);
+		}
 
         vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
         vkDestroyPipeline(device, graphicsPipeline, nullptr);
@@ -1452,45 +1470,62 @@ protected:
         ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
         ubo.proj[1][1] *= -1;
 
-        ubo.count = 1;
+		void* data_vert;
+		vkMapMemory(device, vertUniformBuffersMemory[currentImage], 0, sizeof(ubo), 0, &data_vert);
+		memcpy(data_vert, &ubo, sizeof(ubo));
+		vkUnmapMemory(device, vertUniformBuffersMemory[currentImage]);
+
+		UniformBufferObjectView ubv{};
         Light light;
-		light.position = glm::vec4(-2.0, 0.0, 2.0, 0.0);
+		light.position = glm::vec4(2.0, 0.0, 2.0, 0.0);
 		light.color = glm::vec4(1.0, 0.0, 0.0, 1.0);
-        light.direction = glm::vec4(-2.0, 0.0, 2.0, 0.0);
-        light.info = glm::vec2(-2.0, 0.0);
-        ubo.lights[0] = light;
-        void* data;
-        vkMapMemory(device, uniformBuffersMemory[currentImage], 0, sizeof(ubo), 0, &data);
-        memcpy(data, &ubo, sizeof(ubo));
-        vkUnmapMemory(device, uniformBuffersMemory[currentImage]);
+        light.direction = glm::vec4(-2.0, 0.0, -2.0, 0.0);
+        light.info = glm::vec4(0.0, 0.0, 0.0, 0.0);
+        ubv.directional_lights[0] = light;
+		ubv.lights_count = glm::ivec4(1, 0, 0, 0);
+		ubv.camera_position = glm::vec4(2.0, 2.0, 2.0, 45.0);
+
+		void* data_view;
+		vkMapMemory(device, viewUniformBuffersMemory[currentImage], 0, sizeof(ubv), 0, &data_view);
+		memcpy(data_view, &ubv, sizeof(ubv));
+		vkUnmapMemory(device, viewUniformBuffersMemory[currentImage]);
     }
     
     /** 通用函数用来创建DescriptorSetLayout*/
     void createDescriptorSetLayout(VkDescriptorSetLayout& outDescriptorSetLayout, uint32_t sampler_number = 1)
     {
         // UnifromBufferObject（ubo）绑定
-        VkDescriptorSetLayoutBinding uboLayoutBinding{};
-        uboLayoutBinding.binding = 0;
-        uboLayoutBinding.descriptorCount = 1;
-        uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        uboLayoutBinding.pImmutableSamplers = nullptr;
-        // @@@
-        uboLayoutBinding.stageFlags = VK_SHADER_STAGE_ALL; //VK_SHADER_STAGE_VERTEX_BIT;
+        VkDescriptorSetLayoutBinding vertUBOLayoutBinding{};
+        vertUBOLayoutBinding.binding = 0;
+        vertUBOLayoutBinding.descriptorCount = 1;
+        vertUBOLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        vertUBOLayoutBinding.pImmutableSamplers = nullptr;
+        vertUBOLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+
+		// UnifromBufferObject（ubo）绑定
+		VkDescriptorSetLayoutBinding viewUBOLayoutBinding{};
+        viewUBOLayoutBinding.binding = 1;
+        viewUBOLayoutBinding.descriptorCount = 1;
+        viewUBOLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        viewUBOLayoutBinding.pImmutableSamplers = nullptr;
+        viewUBOLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT; // view ubo 主要信息用于 fragment shader
 
         // 将UnifromBufferObject和贴图采样器绑定到DescriptorSetLayout上
         std::vector<VkDescriptorSetLayoutBinding> bindings;
-        bindings.resize(sampler_number + 1);
-        bindings[0] = uboLayoutBinding;
+        bindings.resize(sampler_number + 2); // 这里2是UniformBuffer的个数
+        bindings[0] = vertUBOLayoutBinding;
+		bindings[1] = viewUBOLayoutBinding;
         for (size_t i = 0; i < sampler_number; i++)
         {
             VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-            samplerLayoutBinding.binding = static_cast<uint32_t>(i + 1);
+            samplerLayoutBinding.binding = static_cast<uint32_t>(i + 2);
             samplerLayoutBinding.descriptorCount = 1;
             samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
             samplerLayoutBinding.pImmutableSamplers = nullptr;
             samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-            bindings[i + 1] = samplerLayoutBinding;
+            bindings[i + 2] = samplerLayoutBinding;
         }
         VkDescriptorSetLayoutCreateInfo layoutInfo{};
         layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -1873,13 +1908,15 @@ protected:
     void createDescriptorPool(VkDescriptorPool& outDescriptorPool, uint32_t sampler_num = 1)
     {
         std::vector<VkDescriptorPoolSize> poolSizes;
-        poolSizes.resize(sampler_num + 1);
+        poolSizes.resize(sampler_num + 2); // 这里2是UniformBuffer的个数
         poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+		poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
         for (size_t i = 0; i < sampler_num; i++)
         {
-            poolSizes[i+1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            poolSizes[i+1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+            poolSizes[i+2].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            poolSizes[i+2].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
         }
 
         VkDescriptorPoolCreateInfo poolInfo{};
@@ -1920,15 +1957,15 @@ protected:
 
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 
-            uint32_t write_size = 1 + static_cast<uint32_t>(inImageViews.size());
+            uint32_t write_size = static_cast<uint32_t>(inImageViews.size()) + 2; // 这里加2为 UniformBuffer 的个数
             std::vector<VkWriteDescriptorSet> descriptorWrites{};
             descriptorWrites.resize(write_size);
 
             // 绑定 UnifromBuffer
-            VkDescriptorBufferInfo bufferInfo{};
-            bufferInfo.buffer = uniformBuffers[i];
-            bufferInfo.offset = 0;
-            bufferInfo.range = sizeof(UniformBufferObject);
+            VkDescriptorBufferInfo bufferInfoOfVert{};
+            bufferInfoOfVert.buffer = vertUniformBuffers[i];
+            bufferInfoOfVert.offset = 0;
+            bufferInfoOfVert.range = sizeof(UniformBufferObject);
 
             descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             descriptorWrites[0].dstSet = outDescriptorSets[i];
@@ -1936,7 +1973,21 @@ protected:
             descriptorWrites[0].dstArrayElement = 0;
             descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
             descriptorWrites[0].descriptorCount = 1;
-            descriptorWrites[0].pBufferInfo = &bufferInfo;
+            descriptorWrites[0].pBufferInfo = &bufferInfoOfVert;
+
+			// 绑定 UnifromBuffer
+			VkDescriptorBufferInfo bufferInfoOfView{};
+            bufferInfoOfView.buffer = viewUniformBuffers[i];
+            bufferInfoOfView.offset = 0;
+            bufferInfoOfView.range = sizeof(UniformBufferObjectView);
+
+            descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrites[1].dstSet = outDescriptorSets[i];
+			descriptorWrites[1].dstBinding = 1;
+			descriptorWrites[1].dstArrayElement = 0;
+			descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			descriptorWrites[1].descriptorCount = 1;
+			descriptorWrites[1].pBufferInfo = &bufferInfoOfView;
 
             // 绑定 Textures
             // descriptorWrites会引用每一个创建的VkDescriptorImageInfo，所以需要用一个数组把它们存储起来
@@ -1950,13 +2001,13 @@ protected:
                 imageInfo.sampler = inSamplers[j];
                 imageInfos[j] = imageInfo;
 
-                descriptorWrites[j + 1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-                descriptorWrites[j + 1].dstSet = outDescriptorSets[i];
-                descriptorWrites[j + 1].dstBinding = static_cast<uint32_t>(j + 1);
-                descriptorWrites[j + 1].dstArrayElement = 0;
-                descriptorWrites[j + 1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-                descriptorWrites[j + 1].descriptorCount = 1;
-                descriptorWrites[j + 1].pImageInfo = &imageInfos[j]; // 注意，这里是引用了VkDescriptorImageInfo，所有需要创建imageInfos这个数组，存储所有的imageInfo而不是使用局部变量imageInfo
+                descriptorWrites[j + 2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                descriptorWrites[j + 2].dstSet = outDescriptorSets[i];
+                descriptorWrites[j + 2].dstBinding = static_cast<uint32_t>(j + 2);
+                descriptorWrites[j + 2].dstArrayElement = 0;
+                descriptorWrites[j + 2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                descriptorWrites[j + 2].descriptorCount = 1;
+                descriptorWrites[j + 2].pImageInfo = &imageInfos[j]; // 注意，这里是引用了VkDescriptorImageInfo，所有需要创建imageInfos这个数组，存储所有的imageInfo而不是使用局部变量imageInfo
             }
 
             vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
