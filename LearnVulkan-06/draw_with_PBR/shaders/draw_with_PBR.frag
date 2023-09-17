@@ -8,10 +8,10 @@ layout( push_constant ) uniform constants
 
 struct Light
 {
-	vec4 position;         // position.w represents type of light
-	vec4 color;            // color.w represents light intensity
-	vec4 direction;        // direction.w represents range
-	vec4 info;             // (only used for spot lights) info.x represents light inner cone angle, info.y represents light outer cone angle
+	vec4 position;  // position.w represents type of light
+	vec4 color;     // color.w represents light intensity
+	vec4 direction; // direction.w represents range
+	vec4 info;      // (only used for spot lights) info.x represents light inner cone angle, info.y represents light outer cone angle
 };
 
 layout(set = 0, binding = 1) uniform UniformBufferObjectView
@@ -147,13 +147,13 @@ vec3 apply_directional_light(uint index, vec3 normal)
 
 	float ndotl = clamp(dot(normal, world_to_light), 0.0, 1.0);
 
-	return vec3(ndotl);
+    return ndotl * view.directional_lights[index].color.w * view.directional_lights[index].color.rgb;
 }
 
 void main()
 {
-    vec3 base_color = vec3(0.3);
-    float metallic = 0.0;
+    vec3 base_color = vec3(0.01);
+    float metallic = 1.0;
     float roughness = 0.1;
     vec3 normal = calcNormal();
     vec3 ambient_occlution = vec3(1.0);
@@ -169,7 +169,8 @@ void main()
 	float NdotV = saturate(dot(N, V));
 
 	vec3 LightContribution = vec3(0.0);
-	vec3 diffuse_color = base_color.rgb * (1.0 - metallic);
+	//vec3 diffuse_color = base_color.rgb * (1.0 - metallic);
+    vec3 diffuse_color = base_color.rgb / PI;
 
     for (uint i = 0U; i < DIRECTIONAL_LIGHTS; ++i)
     {
@@ -188,7 +189,7 @@ void main()
 
         float Fd = Fr_DisneyDiffuse(NdotV, NdotL, LdotH, roughness);
 
-        LightContribution = apply_directional_light(i, N) * (diffuse_color * (vec3(1.0) - F) * Fd + Fr);
+        LightContribution += apply_directional_light(i, N) * (diffuse_color * (vec3(1.0) - F) * Fd + Fr);
     }
 
     // [1] Tempory irradiance to fix dark metals
@@ -200,5 +201,4 @@ void main()
 	vec3 ambient_color = ibl_diffuse;
 
 	outColor = vec4(0.3 * ambient_color + LightContribution, 1.0);
-	//outColor = vec4(view.directional_lights[0].color.rgb, 1.0);
 }

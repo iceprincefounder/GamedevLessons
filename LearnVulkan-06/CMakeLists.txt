@@ -112,6 +112,7 @@ function(buildProject PROJECT_NAME)
     COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/hylian_shield.obj ${MODELS_DEST}/hylian_shield.obj
     COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/master_sword.obj ${MODELS_DEST}/master_sword.obj
     COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/steath.obj ${MODELS_DEST}/steath.obj
+    COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/sphere.obj ${MODELS_DEST}/sphere.obj
 	VERBATIM
     COMMENT "Copying Models!"
     )

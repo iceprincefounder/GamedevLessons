@@ -1,4 +1,4 @@
-﻿// Copyright LearnVulkan-06: Draw with PBR, @xukai. All Rights Reserved.
+// Copyright LearnVulkan-06: Draw with PBR, @xukai. All Rights Reserved.
 #define GLFW_INCLUDE_VULKAN
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE // 深度缓存区，OpenGL默认是（-1.0， 1.0）Vulakn为（0.0， 1.0）
@@ -204,6 +204,8 @@ private:
     /** 全局常量*/
     struct GlobalConstants {
         float time;
+        float roughness;
+        float metallic;
     } global;
 
     GLFWwindow* window;									// Window 渲染桌面
@@ -229,8 +231,8 @@ private:
     VkDeviceMemory depthImageMemory;					// 深度纹理内存
     VkImageView depthImageView;							// 深度纹理图像
 
-    std::vector<VkBuffer> vertUniformBuffers;				// 统一缓存区
-    std::vector<VkDeviceMemory> vertUniformBuffersMemory;	// 统一缓存区内存地址
+    std::vector<VkBuffer> meshUniformBuffers;				// 统一缓存区
+    std::vector<VkDeviceMemory> meshUniformBuffersMemory;	// 统一缓存区内存地址
 
 	std::vector<VkBuffer> viewUniformBuffers;				// 统一缓存区
 	std::vector<VkDeviceMemory> viewUniformBuffersMemory;	// 统一缓存区内存地址
@@ -817,15 +819,15 @@ protected:
     /** 创建统一缓存区（UBO）*/
     void createUniformBuffers()
     {
-        VkDeviceSize bufferSizeOfVert = sizeof(UniformBufferObject);
-        vertUniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-        vertUniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+        VkDeviceSize bufferSizeOfMesh = sizeof(UniformBufferObject);
+        meshUniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+        meshUniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
 
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            createBuffer(bufferSizeOfVert, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, vertUniformBuffers[i], vertUniformBuffersMemory[i]);
+            createBuffer(bufferSizeOfMesh, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, meshUniformBuffers[i], meshUniformBuffersMemory[i]);
 
             // 这里会导致 memory stack overflow ，不应该在这里 vkMapMemory
-            //vkMapMemory(device, vertUniformBuffersMemory[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
+            //vkMapMemory(device, meshUniformBuffersMemory[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
         }
 
 		VkDeviceSize bufferSizeOfView = sizeof(UniformBufferObjectView);
@@ -873,38 +875,38 @@ protected:
         createGraphicsPipeline(stagePipeline.pipelineLayout, stagePipeline.graphicsPipeline, stagePipeline.descriptorSetLayout, "Resources/Shaders/draw_with_PBR_vert.spv", "Resources/Shaders/draw_with_PBR_frag.spv");
 
         //~ 开始 创建场景，包括VBO，UBO，贴图等
-  //      StageObject hylian_shield;
-  //      std::string hylian_shield_obj = "Resources/Models/hylian_shield.obj";
-  //      std::vector<std::string> hylian_shield_pngs = { 
-  //          "Resources/Textures/hylian_shield_c.png",
-  //          "Resources/Textures/hylian_shield_m.png",
-  //          "Resources/Textures/hylian_shield_r.png",
-  //          "Resources/Textures/hylian_shield_n.png",
-  //          "Resources/Textures/hylian_shield_o.png"};
-  //      createStageRenderResource(hylian_shield, hylian_shield_obj, hylian_shield_pngs);
-        //stageScene.push_back(hylian_shield);
-
-  //      StageObject master_sword;
-  //      std::string master_sword_obj = "Resources/Models/master_sword.obj";
-  //      std::vector<std::string> master_sword_pngs = { 
-  //          "Resources/Textures/master_sword_c.png",
-  //          "Resources/Textures/master_sword_m.png",
-  //          "Resources/Textures/master_sword_r.png",
-  //          "Resources/Textures/master_sword_n.png",
-  //          "Resources/Textures/master_sword_o.png"};
-  //      createStageRenderResource(master_sword, master_sword_obj, master_sword_pngs);
-        //stageScene.push_back(master_sword);
-
-  //      StageObject steath;
-  //      std::string steath_obj = "Resources/Models/steath.obj";
-  //      std::vector<std::string> steath_pngs = { 
-  //          "Resources/Textures/steath_c.png",
-  //          "Resources/Textures/steath_m.png",
-  //          "Resources/Textures/steath_r.png",
-  //          "Resources/Textures/steath_n.png",
-  //          "Resources/Textures/steath_o.png"};
-  //      createStageRenderResource(steath, steath_obj, steath_pngs);
-        //stageScene.push_back(steath);
+//        StageObject hylian_shield;
+//        std::string hylian_shield_obj = "Resources/Models/hylian_shield.obj";
+//        std::vector<std::string> hylian_shield_pngs = {
+//            "Resources/Textures/hylian_shield_c.png",
+//            "Resources/Textures/hylian_shield_m.png",
+//            "Resources/Textures/hylian_shield_r.png",
+//            "Resources/Textures/hylian_shield_n.png",
+//            "Resources/Textures/hylian_shield_o.png"};
+//        createStageRenderResource(hylian_shield, hylian_shield_obj, hylian_shield_pngs);
+//        stageScene.push_back(hylian_shield);
+//
+//        StageObject master_sword;
+//        std::string master_sword_obj = "Resources/Models/master_sword.obj";
+//        std::vector<std::string> master_sword_pngs = {
+//            "Resources/Textures/master_sword_c.png",
+//            "Resources/Textures/master_sword_m.png",
+//            "Resources/Textures/master_sword_r.png",
+//            "Resources/Textures/master_sword_n.png",
+//            "Resources/Textures/master_sword_o.png"};
+//        createStageRenderResource(master_sword, master_sword_obj, master_sword_pngs);
+//        stageScene.push_back(master_sword);
+//
+//        StageObject steath;
+//        std::string steath_obj = "Resources/Models/steath.obj";
+//        std::vector<std::string> steath_pngs = {
+//            "Resources/Textures/steath_c.png",
+//            "Resources/Textures/steath_m.png",
+//            "Resources/Textures/steath_r.png",
+//            "Resources/Textures/steath_n.png",
+//            "Resources/Textures/steath_o.png"};
+//        createStageRenderResource(steath, steath_obj, steath_pngs);
+//        stageScene.push_back(steath);
 
         StageObject preview_mesh;
         std::string preview_mesh_obj = "Resources/Models/sphere.obj";
@@ -1064,8 +1066,8 @@ protected:
 
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
         {
-            vkDestroyBuffer(device, vertUniformBuffers[i], nullptr);
-            vkFreeMemory(device, vertUniformBuffersMemory[i], nullptr);
+            vkDestroyBuffer(device, meshUniformBuffers[i], nullptr);
+            vkFreeMemory(device, meshUniformBuffersMemory[i], nullptr);
         }
 
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -1465,20 +1467,20 @@ protected:
 
         glm::mat4 normalize = glm::rotate(glm::mat4(1.0f), glm::radians(00.0f), glm::vec3(1.0f, 0.0f, 0.0f));
         UniformBufferObject ubo{};
-        ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(00.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
         ubo.proj[1][1] *= -1;
 
-		void* data_vert;
-		vkMapMemory(device, vertUniformBuffersMemory[currentImage], 0, sizeof(ubo), 0, &data_vert);
-		memcpy(data_vert, &ubo, sizeof(ubo));
-		vkUnmapMemory(device, vertUniformBuffersMemory[currentImage]);
+		void* data_mesh;
+		vkMapMemory(device, meshUniformBuffersMemory[currentImage], 0, sizeof(ubo), 0, &data_mesh);
+		memcpy(data_mesh, &ubo, sizeof(ubo));
+		vkUnmapMemory(device, meshUniformBuffersMemory[currentImage]);
 
 		UniformBufferObjectView ubv{};
         Light light;
 		light.position = glm::vec4(2.0, 0.0, 2.0, 0.0);
-		light.color = glm::vec4(1.0, 0.0, 0.0, 1.0);
+		light.color = glm::vec4(1.0, 1.0, 1.0, 3.0);
         light.direction = glm::vec4(-2.0, 0.0, -2.0, 0.0);
         light.info = glm::vec4(0.0, 0.0, 0.0, 0.0);
         ubv.directional_lights[0] = light;
@@ -1962,10 +1964,10 @@ protected:
             descriptorWrites.resize(write_size);
 
             // 绑定 UnifromBuffer
-            VkDescriptorBufferInfo bufferInfoOfVert{};
-            bufferInfoOfVert.buffer = vertUniformBuffers[i];
-            bufferInfoOfVert.offset = 0;
-            bufferInfoOfVert.range = sizeof(UniformBufferObject);
+            VkDescriptorBufferInfo bufferInfoOfMesh{};
+            bufferInfoOfMesh.buffer = meshUniformBuffers[i];
+            bufferInfoOfMesh.offset = 0;
+            bufferInfoOfMesh.range = sizeof(UniformBufferObject);
 
             descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             descriptorWrites[0].dstSet = outDescriptorSets[i];
@@ -1973,7 +1975,7 @@ protected:
             descriptorWrites[0].dstArrayElement = 0;
             descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
             descriptorWrites[0].descriptorCount = 1;
-            descriptorWrites[0].pBufferInfo = &bufferInfoOfVert;
+            descriptorWrites[0].pBufferInfo = &bufferInfoOfMesh;
 
 			// 绑定 UnifromBuffer
 			VkDescriptorBufferInfo bufferInfoOfView{};
