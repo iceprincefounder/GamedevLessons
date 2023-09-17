@@ -6,17 +6,31 @@ layout( push_constant ) uniform constants
 	float time;
 } global;
 
+struct Light
+{
+	vec4 position;         // position.w represents type of light
+	vec4 color;            // color.w represents light intensity
+	vec4 direction;        // direction.w represents range
+	vec2 info;             // (only used for spot lights) info.x represents light inner cone angle, info.y represents light outer cone angle
+};
+
+
 layout(set = 0, binding = 0) uniform UniformBufferObject
 {
     mat4 model;
     mat4 view;
     mat4 proj;
+    uint count;
+    Light lights[4];    
 } ubo;
 layout(set = 0, binding = 1) uniform sampler2D sampler1; // c
 layout(set = 0, binding = 2) uniform sampler2D sampler2; // m
 layout(set = 0, binding = 3) uniform sampler2D sampler3; // r
 layout(set = 0, binding = 4) uniform sampler2D sampler4; // n
 layout(set = 0, binding = 5) uniform sampler2D sampler5; // o
+
+
+vec3 light_color = ubo.lights[0].color.rgb;
 
 layout(location = 0) in vec3 fragPosition;
 layout(location = 1) in vec3 fragNormal;
@@ -29,6 +43,9 @@ layout(location = 0) out vec4 outColor;
 const float PI = 3.14159265359;
 
 vec3 F0 = vec3(0.04);
+
+vec4 light_direction = vec4(2.0, 0.0, 2.0, 1.0);
+vec3 camera_position = vec3(2.0, 2.0, 2.0);
 
 // [0] Frensel Schlick
 vec3 F_Schlick(vec3 f0, float f90, float u)
@@ -101,7 +118,7 @@ vec3 calcNormal()
     mat3 TBN    = mat3(T, B, N);
 
 #if 0
-    vec3 n = texture(sampler4, fragTexCoord).rgb;
+    vec3 n = vec3(0.0, 0.0, 0.5);// texture(sampler4, fragTexCoord).rgb;
     return normalize(TBN * (2.0 * n - 1.0));
 #else
     return normalize(TBN[2].xyz);
@@ -110,27 +127,32 @@ vec3 calcNormal()
 
 float apply_directional_light(uint index, vec3 normal)
 {
-    vec4 light = vec4(-2.0, 2.0, 2.0, 1.0);
-    vec3 world_to_light = -light.xyz;
+    vec3 world_to_light = light_direction.xyz;
 
     world_to_light = normalize(world_to_light);
 
     float ndotl = clamp(dot(normal, world_to_light), 0.0, 1.0);
 
-    return ndotl * light.w;
+    return ndotl * light_direction.w;
 }
 
 void main()
 {
-    vec3 base_color = vec3(0.3); //texture(sampler1, fragTexCoord).rgb;
-    float metallic = 0.0; //saturate(texture(sampler2, fragTexCoord).r);
-    float roughness = 0.3; //saturate(texture(sampler3, fragTexCoord).r);
+    vec3 base_color = vec3(0.3);
+    float metallic = 0.0;
+    float roughness = 0.1;
     vec3 normal = texture(sampler4, fragTexCoord).rgb;
     vec3 ambient_occlution = texture(sampler5, fragTexCoord).rgb;
 
-	vec3 camera_position = vec3(2.0, 2.0, 2.0); // vec3(ubo.view[12], ubo.view[13], ubo.view[14]);
+    //vec3 base_color = texture(sampler1, fragTexCoord).rgb;
+    //float metallic = saturate(texture(sampler2, fragTexCoord).r);
+    //float roughness = saturate(texture(sampler3, fragTexCoord).r);
+    //vec3 normal = texture(sampler4, fragTexCoord).rgb;
+    //vec3 ambient_occlution = texture(sampler5, fragTexCoord).rgb;
+
+
 	vec3 N = calcNormal();
-	vec3 V = camera_position; //normalize(global_uniform.camera_position - in_pos);
+	vec3 V = normalize(camera_position - fragPosition);
 	float NdotV = saturate(dot(N, V));
 
 	vec3 LightContribution = vec3(0.0);
@@ -138,7 +160,7 @@ void main()
 
     for (uint i = 0U; i < 1; ++i)
     {
-        vec3 L = vec3(-2.0, 2.0, 2.0);
+        vec3 L = light_direction.rgb;
         vec3 H = normalize(V + L);
 
         float LdotH = saturate(dot(L, H));
@@ -156,12 +178,14 @@ void main()
         LightContribution = apply_directional_light(i, N) * (diffuse_color * (vec3(1.0) - F) * Fd + Fr);
     }
 
+    // [1] Tempory irradiance to fix dark metals
+	// TODO: add specular irradiance for realistic metals
 	vec3 irradiance  = vec3(0.5);
-	vec3 F = F_Schlick_Roughness(F0, max(dot(N, V), 0.0), roughness * roughness * roughness * roughness);
-	//vec3 ibl_diffuse = irradiance * base_color.rgb;
-    vec3 final_color = LightContribution;
-    //vec3 final_color = ibl_diffuse; //(base_color / PI);
-	//vec3 final_color = base_color * ambient_occlution * 2.0;
-    //vec3 final_color = vec3(dot(calcNormal(), L)); //normalize(fragPosition); //vec3(dot(fragNormal, L));
-	outColor = vec4(final_color, 1.0);
+	vec3 F           = F_Schlick_Roughness(F0, max(dot(N, V), 0.0), roughness * roughness * roughness * roughness);
+	vec3 ibl_diffuse = irradiance * base_color.rgb;
+
+	vec3 ambient_color = ibl_diffuse;
+
+	outColor = vec4(0.3 * ambient_color + LightContribution, 1.0);
+	//outColor = vec4(light_color, 1.0);
 }
