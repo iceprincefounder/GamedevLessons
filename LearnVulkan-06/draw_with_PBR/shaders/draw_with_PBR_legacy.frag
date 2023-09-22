@@ -26,14 +26,13 @@ layout(set = 0, binding = 1) uniform UniformBufferObjectView
 uint DIRECTIONAL_LIGHTS = view.lights_count[0];
 uint POINT_LIGHTS = view.lights_count[1];
 uint SPOT_LIGHTS = view.lights_count[2];
-uint SKY_MAXMIPS = view.lights_count[3];
+uint AREA_LIGHTS = view.lights_count[3];
 
-layout(set = 0, binding = 2) uniform sampler2D skycube;  // sky
-layout(set = 0, binding = 3) uniform sampler2D sampler1; // c
-layout(set = 0, binding = 4) uniform sampler2D sampler2; // m
-layout(set = 0, binding = 5) uniform sampler2D sampler3; // r
-layout(set = 0, binding = 6) uniform sampler2D sampler4; // n
-layout(set = 0, binding = 7) uniform sampler2D sampler5; // o
+layout(set = 0, binding = 2) uniform sampler2D sampler1; // c
+layout(set = 0, binding = 3) uniform sampler2D sampler2; // m
+layout(set = 0, binding = 4) uniform sampler2D sampler3; // r
+layout(set = 0, binding = 5) uniform sampler2D sampler4; // n
+layout(set = 0, binding = 6) uniform sampler2D sampler5; // o
 
 layout(location = 0) in vec3 fragPosition;
 layout(location = 1) in vec3 fragNormal;
@@ -151,42 +150,27 @@ vec3 apply_directional_light(uint index, vec3 normal)
     return ndotl * view.directional_lights[index].color.w * view.directional_lights[index].color.rgb;
 }
 
-#define REFLECTION_CAPTURE_ROUGHEST_MIP 1
-#define REFLECTION_CAPTURE_ROUGHNESS_MIP_SCALE 1.2
-/** 
- * Compute absolute mip for a reflection capture cubemap given a roughness.
- */
-float compute_reflection_mip_from_roughness(float roughness, float cubemap_max_mip)
-{
-	// Heuristic that maps roughness to mip level
-	// This is done in a way such that a certain mip level will always have the same roughness, regardless of how many mips are in the texture
-	// Using more mips in the cubemap just allows sharper reflections to be supported
-	float level_from_1x1 = REFLECTION_CAPTURE_ROUGHEST_MIP - REFLECTION_CAPTURE_ROUGHNESS_MIP_SCALE * log2(max(roughness, 0.001));
-	return cubemap_max_mip - 1 - level_from_1x1;
-}
-
 void main()
 {
-    //vec3 base_color = vec3(0.3);
-    //float metallic = 1.0;
-    //float roughness = 0.1;
-    //vec3 normal = calcNormal();
-    //vec3 ambient_occlution = vec3(1.0);
+    vec3 base_color = vec3(0.01);
+    float metallic = 1.0;
+    float roughness = 0.1;
+    vec3 normal = calcNormal();
+    vec3 ambient_occlution = vec3(1.0);
 
-    vec3 base_color = texture(sampler1, fragTexCoord).rgb;
-    float metallic = saturate(texture(sampler2, fragTexCoord).r);
-    float roughness = saturate(texture(sampler3, fragTexCoord).r);
-    vec3 normal = calcNormal(); //calcNormal(texture(sampler4, fragTexCoord).rgb);
-    vec3 ambient_occlution = texture(sampler5, fragTexCoord).rgb;
-	//metallic = clamp(metallic, 0.0, 0.75);
+    //vec3 base_color = texture(sampler1, fragTexCoord).rgb;
+    //float metallic = saturate(texture(sampler2, fragTexCoord).r);
+    //float roughness = saturate(texture(sampler3, fragTexCoord).r);
+    //vec3 normal = calcNormal(texture(sampler4, fragTexCoord).rgb);
+    //vec3 ambient_occlution = texture(sampler5, fragTexCoord).rgb;
 
 	vec3 N = normal;
 	vec3 V = normalize(view.camera_position.xyz - fragPosition);
 	float NdotV = saturate(dot(N, V));
 
 	vec3 LightContribution = vec3(0.0);
-	vec3 diffuse_color = base_color.rgb * (1.0 - metallic);
-    // vec3 diffuse_color = base_color.rgb / PI;
+	//vec3 diffuse_color = base_color.rgb * (1.0 - metallic);
+    vec3 diffuse_color = base_color.rgb / PI;
 
     for (uint i = 0U; i < DIRECTIONAL_LIGHTS; ++i)
     {
@@ -214,15 +198,7 @@ void main()
 	vec3 F           = F_Schlick_Roughness(F0, max(dot(N, V), 0.0), roughness * roughness * roughness * roughness);
 	vec3 ibl_diffuse = irradiance * base_color.rgb;
 
-    float ratio = 1.00 / 1.52;
-    vec3 I = -V;
-    vec3 R = refract(I, normalize(N), ratio);
-    float mip = compute_reflection_mip_from_roughness(roughness, SKY_MAXMIPS);
-    vec3 sky = textureLod(skycube, R.xy, mip).rgb;
-	vec3 ambient_color = ibl_diffuse + metallic * sky;
+	vec3 ambient_color = ibl_diffuse;
 
-    vec3 color = 0.3 * ambient_color + LightContribution;
-    // Gamma correct
-	// color = pow(color, vec3(0.4545));
-	outColor = vec4(color, 1.0);
+	outColor = vec4(0.3 * ambient_color + LightContribution, 1.0);
 }
