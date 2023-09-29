@@ -28,12 +28,12 @@ uint POINT_LIGHTS = view.lights_count[1];
 uint SPOT_LIGHTS = view.lights_count[2];
 uint SKY_MAXMIPS = view.lights_count[3];
 
-layout(set = 0, binding = 2) uniform sampler2D skycube;  // sky
-layout(set = 0, binding = 3) uniform sampler2D sampler1; // c
-layout(set = 0, binding = 4) uniform sampler2D sampler2; // m
-layout(set = 0, binding = 5) uniform sampler2D sampler3; // r
-layout(set = 0, binding = 6) uniform sampler2D sampler4; // n
-layout(set = 0, binding = 7) uniform sampler2D sampler5; // o
+layout(set = 0, binding = 2) uniform sampler2D skycube;  // sky cubemap
+layout(set = 0, binding = 3) uniform sampler2D sampler1; // basecolor
+layout(set = 0, binding = 4) uniform sampler2D sampler2; // metalic
+layout(set = 0, binding = 5) uniform sampler2D sampler3; // roughness
+layout(set = 0, binding = 6) uniform sampler2D sampler4; // normalmap
+layout(set = 0, binding = 7) uniform sampler2D sampler5; // ambient occlution
 
 layout(location = 0) in vec3 fragPosition;
 layout(location = 1) in vec3 fragNormal;
@@ -105,6 +105,16 @@ vec3 saturate(vec3 t)
 	return clamp(t, 0.0, 1.0);
 }
 
+float lerp(float f1, float f2, float a)
+{
+	return ((1.0 - a) * f1 + a * f2);
+}
+
+vec3 lerp(vec3 v1, vec3 v2, float a)
+{
+	return ((1.0 - a) * v1 + a * v2);
+}
+
 vec3 calcNormal()
 {
     vec3 pos_dx = dFdx(fragPosition);
@@ -132,7 +142,7 @@ vec3 calcNormal(vec3 n)
     vec3 B      = normalize(cross(N, T));
     mat3 TBN    = mat3(T, B, N);
 
-    return normalize(TBN * (2.0 * n - 1.0));
+    return normalize(TBN * normalize(2.0 * n - 1.0));
 }
 
 vec3 get_directional_light_direction(uint index)
@@ -165,8 +175,47 @@ float compute_reflection_mip_from_roughness(float roughness, float cubemap_max_m
 	return cubemap_max_mip - 1 - level_from_1x1;
 }
 
+vec2 EnvBRDFApproxLazarov(float Roughness, float NoV)
+{
+	// [ Lazarov 2013, "Getting More Physical in Call of Duty: Black Ops II" ]
+	// Adaptation to fit our G term.
+	const vec4 c0 = { -1, -0.0275, -0.572, 0.022 };
+	const vec4 c1 = { 1, 0.0425, 1.04, -0.04 };
+	vec4 r = Roughness * c0 + c1;
+	float a004 = min(r.x * r.x, exp2(-9.28 * NoV)) * r.x + r.y;
+	vec2 AB = vec2(-1.04, 1.04) * a004 + r.zw;
+	return AB;
+}
+
+vec3 EnvBRDFApprox( vec3 SpecularColor, float Roughness, float NoV )
+{
+	vec2 AB = EnvBRDFApproxLazarov(Roughness, NoV);
+
+	// Anything less than 2% is physically impossible and is instead considered to be shadowing
+	// Note: this is needed for the 'specular' show flag to work, since it uses a SpecularColor of 0
+	float F90 = saturate( 50.0 * SpecularColor.g );
+
+	return SpecularColor * AB.x + F90 * AB.y;
+}
+
+float GetSpecularOcclusion(float NoV, float RoughnessSq, float AO)
+{
+	return saturate( pow( NoV + AO, RoughnessSq ) - 1 + AO );
+}
+
+float DielectricSpecularToF0(float Specular)
+{
+	return 0.08f * Specular;
+}
+
+vec3 ComputeF0(float Specular, vec3 BaseColor, float Metallic)
+{
+	return lerp(DielectricSpecularToF0(Specular).xxx, BaseColor, Metallic.x);
+}
+
 void main()
 {
+	// DEBUG ARGS
     //vec3 base_color = vec3(0.3);
     //float metallic = 1.0;
     //float roughness = 0.1;
@@ -176,18 +225,20 @@ void main()
     vec3 base_color = texture(sampler1, fragTexCoord).rgb;
     float metallic = saturate(texture(sampler2, fragTexCoord).r);
     float roughness = saturate(texture(sampler3, fragTexCoord).r);
-    vec3 normal = calcNormal(); //calcNormal(texture(sampler4, fragTexCoord).rgb);
+    vec3 normal = calcNormal(texture(sampler4, fragTexCoord).rgb);
     vec3 ambient_occlution = texture(sampler5, fragTexCoord).rgb;
-	//metallic = clamp(metallic, 0.0, 0.75);
+
+    roughness = max(0.01, roughness);
+
 
 	vec3 N = normal;
 	vec3 V = normalize(view.camera_position.xyz - fragPosition);
 	float NdotV = saturate(dot(N, V));
 
-	vec3 LightContribution = vec3(0.0);
-	vec3 diffuse_color = base_color.rgb * (1.0 - metallic);
-    // vec3 diffuse_color = base_color.rgb / PI;
 
+	// Direct Lighting : DisneyDiffuse + SpecularGGX
+	vec3 direct_lighting = vec3(0.0);
+	vec3 diffuse_color = base_color.rgb * (1.0 - metallic);
     for (uint i = 0U; i < DIRECTIONAL_LIGHTS; ++i)
     {
         vec3 L = get_directional_light_direction(i);
@@ -205,24 +256,36 @@ void main()
 
         float Fd = Fr_DisneyDiffuse(NdotV, NdotL, LdotH, roughness);
 
-        LightContribution += apply_directional_light(i, N) * (diffuse_color * (vec3(1.0) - F) * Fd + Fr);
+		vec3 direct_diffuse = diffuse_color * (vec3(1.0) - F) * Fd;
+		vec3 direct_specular = Fr;
+
+		// TODO : Add energy presevation (i.e. attenuation of the specular layer onto the diffuse component
+		// TODO : Add specular microfacet multiple scattering term (energy-conservation)
+
+        direct_lighting += apply_directional_light(i, N) * (direct_diffuse + direct_specular);
     }
 
-    // [1] Tempory irradiance to fix dark metals
-	// TODO: add specular irradiance for realistic metals
-	vec3 irradiance  = vec3(0.5);
-	vec3 F           = F_Schlick_Roughness(F0, max(dot(N, V), 0.0), roughness * roughness * roughness * roughness);
-	vec3 ibl_diffuse = irradiance * base_color.rgb;
 
+	// Indirect Lighting : Simple lambert diffuse as indirect lighting
+	vec3 indirect_lighting = base_color.rgb / PI * ambient_occlution;
+
+
+	// Reflection Specular : Image based lighting
+	vec3 specular = ComputeF0(0.5, base_color, metallic);
+	vec3 reflection_brdf = EnvBRDFApprox(specular, roughness, NdotV);
     float ratio = 1.00 / 1.52;
     vec3 I = -V;
     vec3 R = refract(I, normalize(N), ratio);
-    float mip = compute_reflection_mip_from_roughness(roughness, SKY_MAXMIPS);
-    vec3 sky = textureLod(skycube, R.xy, mip).rgb;
-	vec3 ambient_color = ibl_diffuse + metallic * sky;
+    float mip = compute_reflection_mip_from_roughness(roughness, 0);
+    vec3 reflection_L = textureLod(skycube, R.xy, mip).rgb;
+	float reflection_V = GetSpecularOcclusion(NdotV, roughness * roughness, ambient_occlution.x);
+	vec3 reflection_color = reflection_L * reflection_V * reflection_brdf;
+    
 
-    vec3 color = 0.3 * ambient_color + LightContribution;
+    vec3 final_color = direct_lighting + indirect_lighting * 0.3 + reflection_color;
+
     // Gamma correct
-	// color = pow(color, vec3(0.4545));
-	outColor = vec4(color, 1.0);
+	final_color = pow(final_color, vec3(0.4545));
+
+	outColor = vec4(final_color, 1.0);
 }

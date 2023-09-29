@@ -29,7 +29,7 @@ void main()
     // Render object with MVP
     gl_Position = ubo.proj * ubo.view * ubo.model * vec4(inPosition, 1.0);
     fragPosition = (ubo.model * vec4(inPosition, 1.0)).rgb;
-    fragNormal = mat3(ubo.model) * normalize(inNormal);
+    fragNormal = (ubo.model * vec4(normalize(inNormal), 1.0)).rgb;
     fragColor = inColor;
     fragTexCoord = inTexCoord;
 }

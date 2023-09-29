@@ -89,6 +89,12 @@ function(buildProject PROJECT_NAME)
 	VERBATIM
 	COMMENT "Compiling Shaders!"
     COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/background.png ${TEXTURES_DEST}/background.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/background.png ${TEXTURES_DEST}/clearsky_front.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/background.png ${TEXTURES_DEST}/clearsky_back.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/background.png ${TEXTURES_DEST}/clearsky_top.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/background.png ${TEXTURES_DEST}/clearsky_bottom.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/background.png ${TEXTURES_DEST}/clearsky_right.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/background.png ${TEXTURES_DEST}/clearsky_left.png
     COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/hylian_shield_c.png ${TEXTURES_DEST}/hylian_shield_c.png
     COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/hylian_shield_m.png ${TEXTURES_DEST}/hylian_shield_m.png
     COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/hylian_shield_r.png ${TEXTURES_DEST}/hylian_shield_r.png
@@ -112,6 +118,8 @@ function(buildProject PROJECT_NAME)
     COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/hylian_shield.obj ${MODELS_DEST}/hylian_shield.obj
     COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/master_sword.obj ${MODELS_DEST}/master_sword.obj
     COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/steath.obj ${MODELS_DEST}/steath.obj
+    COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/sphere.obj ${MODELS_DEST}/axis_guide.obj
+    COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/sphere.obj ${MODELS_DEST}/cube.obj
     COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/sphere.obj ${MODELS_DEST}/sphere.obj
 	VERBATIM
     COMMENT "Copying Models!"

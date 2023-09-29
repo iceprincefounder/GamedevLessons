@@ -9,5 +9,10 @@ layout(location = 1) in vec2 fragTexCoord;
 layout(location = 0) out vec4 outColor;
 
 void main() {
-    outColor = vec4(texture(backgroundSampler, fragTexCoord).rgb, 1.0);
+    vec3 color = texture(backgroundSampler, fragTexCoord).rgb;
+
+    // Gamma correct
+	color = pow(color, vec3(0.4545));
+
+    outColor = vec4(color, 1.0);
 }

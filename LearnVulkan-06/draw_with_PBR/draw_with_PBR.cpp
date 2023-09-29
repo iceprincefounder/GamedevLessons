@@ -826,7 +826,13 @@ protected:
 	void createCubemapResources()
 	{
         //createImageContext(cubemapImage, cubemapImageMemory, cubemapImageView, cubemapSampler, "Resources/Textures/clear_sky.png");
-        createImageHDRContext(cubemapImage, cubemapImageMemory, cubemapImageView, cubemapSampler,  cubemapMaxMips,"Resources/Textures/clear_sky.png");
+        createImageHDRContext(cubemapImage, cubemapImageMemory, cubemapImageView, cubemapSampler,  cubemapMaxMips, { 
+            "Resources/Textures/clearsky_front.png",
+            "Resources/Textures/clearsky_back.png",
+            "Resources/Textures/clearsky_top.png",
+			"Resources/Textures/clearsky_bottom.png",
+			"Resources/Textures/clearsky_right.png",
+			"Resources/Textures/clearsky_left.png"});
 	}
 
     /** 创建统一缓存区（UBO）*/
@@ -855,9 +861,7 @@ protected:
     void createStageScene()
     {
         // 创建背景贴图
-        createImage(backgroundImage, backgroundImageMemory, "Resources/Textures/background.png");// 创建贴图资源
-        createImageView(backgroundImageView, backgroundImage, VK_FORMAT_R8G8B8A8_SRGB);// 创建着色器中引用的贴图View
-        createSampler(backgroundSampler);// 创建着色器中引用的贴图采样器
+		createImageContext(backgroundImage, backgroundImageMemory, backgroundImageView, backgroundSampler, "Resources/Textures/background.png");
         createDescriptorPool(descriptorPool);
         createDescriptorSets(descriptorSets, descriptorPool, descriptorSetLayout, backgroundImageView, backgroundSampler);
 
@@ -871,7 +875,8 @@ protected:
             for (size_t i = 0; i < pngfiles.size(); i++)
             {
                 // 一个便捷函数，创建图像，视口和采样器
-                createImageContext(outStageObject.textureImages[i], outStageObject.textureImageMemorys[i], outStageObject.textureImageViews[i], outStageObject.textureSamplers[i], pngfiles[i]);
+                bool sRGB = (i == 0);
+                createImageContext(outStageObject.textureImages[i], outStageObject.textureImageMemorys[i], outStageObject.textureImageViews[i], outStageObject.textureSamplers[i], pngfiles[i], sRGB);
             }
 
             createVertexBuffer(outStageObject.vertexBuffer, outStageObject.vertexBufferMemory, outStageObject.vertices);
@@ -923,22 +928,22 @@ protected:
         //StageObject preview_mesh;
         //std::string preview_mesh_obj = "Resources/Models/sphere.obj";
         //std::vector<std::string> preview_mesh_pngs = {
-        //    "Resources/Textures/steath_c.png",
-        //    "Resources/Textures/steath_m.png",
-        //    "Resources/Textures/steath_r.png",
-        //    "Resources/Textures/steath_n.png",
-        //    "Resources/Textures/clear_sky.png" };
+        //    "Resources/Textures/default_white.png",
+        //    "Resources/Textures/default_white.png",
+        //    "Resources/Textures/default_black.png",
+        //    "Resources/Textures/default_normal.png",
+        //    "Resources/Textures/default_grey.png" };
         //createStageRenderResource(preview_mesh, preview_mesh_obj, preview_mesh_pngs);
         //stageScene.push_back(preview_mesh);
 
         //StageObject axis_guide;
         //std::string axis_guide_obj = "Resources/Models/axis_guide.obj";
         //std::vector<std::string> axis_guide_pngs = {
-        //	"Resources/Textures/steath_c.png",
-        //	"Resources/Textures/steath_m.png",
-        //	"Resources/Textures/steath_r.png",
-        //	"Resources/Textures/steath_n.png",
-        //	"Resources/Textures/steath_o.png" };
+	       // "Resources/Textures/default_white.png",
+	       // "Resources/Textures/default_white.png",
+	       // "Resources/Textures/default_black.png",
+	       // "Resources/Textures/default_normal.png",
+	       // "Resources/Textures/default_grey.png" };
         //createStageRenderResource(axis_guide, axis_guide_obj, axis_guide_pngs);
         //stageScene.push_back(axis_guide);
 
@@ -1145,9 +1150,14 @@ protected:
     /** 选择SwapChain渲染到视图的图像的格式*/
     VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
     {
+        // 找到合适的图像格式
+        // VK_FORMAT_B8G8R8A8_SRGB 将图像BGRA存储在 unsigned normalized format 中，使用SRGB 非线性编码，颜色空间为非线性空间，不用Gamma矫正最终结果
+		// VK_FORMAT_B8G8R8A8_UNORM 将图像BGRA存储在 unsigned normalized format 中，颜色空间为线性空间，像素的最终输出颜色需要Gamma矫正
         for (const auto& availableFormat : availableFormats)
         {
-            if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+            // 将 FrameBuffer Image 设置为线性空间，方便 PBR 的工作流以及颜色矫正（ColorCorrection）
+			//if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+			if (availableFormat.format == VK_FORMAT_B8G8R8A8_UNORM && availableFormat.colorSpace == VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT)
             {
                 return availableFormat;
             }
@@ -1482,7 +1492,7 @@ protected:
         float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
         global.time = time;
 
-        glm::mat4 normalize = glm::rotate(glm::mat4(1.0f), glm::radians(00.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        glm::mat4 normalize = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(1.0f, 0.0f, 0.0f));
         UniformBufferObject ubo{};
         ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
@@ -1737,7 +1747,7 @@ protected:
     }
 
 	/** 读取一个贴图路径，然后创建图像、视口和采样器等资源*/
-	void createImageContext(VkImage& outImage, VkDeviceMemory& outMemory, VkImageView& outImageView, VkSampler& outSampler, const std::string& filename)
+	void createImageContext(VkImage& outImage, VkDeviceMemory& outMemory, VkImageView& outImageView, VkSampler& outSampler, const std::string& filename, bool sRGB = true)
 	{
 		int texWidth, texHeight, texChannels, mipLevels;
 		stbi_uc* pixels = readTextureResource(filename, texWidth, texHeight, texChannels, mipLevels);
@@ -1756,8 +1766,9 @@ protected:
 		// 清理pixels数据结构
 		stbi_image_free(pixels);
 
+        VkFormat format = sRGB ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM;
 		// VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT 告诉Vulkan这张贴图即要被读也要被写
-		outImage = createImage(outMemory, texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, mipLevels);
+		outImage = createImage(outMemory, texWidth, texHeight, format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, mipLevels);
 
 		transitionImageLayout(outImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mipLevels);
 		copyBufferToImage(stagingBuffer, outImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
@@ -1766,21 +1777,26 @@ protected:
 		vkDestroyBuffer(device, stagingBuffer, nullptr);
 		vkFreeMemory(device, stagingBufferMemory, nullptr);
 
-		generateMipmaps(outImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, mipLevels);
+		generateMipmaps(outImage, format, texWidth, texHeight, mipLevels);
 
-        createImageView(outImageView, outImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
+        createImageView(outImageView, outImage, format, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
         createSampler(outSampler, mipLevels);
 	}
 
 	/** 读取一个HDR贴图路径，然后创建图像资源*/
-	void createImageHDRContext(VkImage& outImage, VkDeviceMemory& outMemory, VkImageView& outImageView, VkSampler& outSampler, uint32_t& outMaxMipLevels, const std::string& filename)
+	void createImageHDRContext(VkImage& outImage, VkDeviceMemory& outMemory, VkImageView& outImageView, VkSampler& outSampler, uint32_t& outMaxMipLevels, const std::vector<std::string>& filenames)
     {
         // TODO: 生成 HDR Cubemap 真的 Too Fucking Difficult ！！！！
         
 		int texWidth, texHeight, texChannels, mipLevels;
-		stbi_uc* pixels = readTextureResource(filename, texWidth, texHeight, texChannels, mipLevels);
-
-		VkDeviceSize imageSize = texWidth * texHeight * 4;
+		stbi_uc* pixels_front = readTextureResource(filenames[0], texWidth, texHeight, texChannels, mipLevels);
+		stbi_uc* pixels_back = readTextureResource(filenames[1], texWidth, texHeight, texChannels, mipLevels);
+		stbi_uc* pixels_top = readTextureResource(filenames[2], texWidth, texHeight, texChannels, mipLevels);
+		stbi_uc* pixels_bottom = readTextureResource(filenames[3], texWidth, texHeight, texChannels, mipLevels);
+		stbi_uc* pixels_right = readTextureResource(filenames[4], texWidth, texHeight, texChannels, mipLevels);
+		stbi_uc* pixels_left = readTextureResource(filenames[5], texWidth, texHeight, texChannels, mipLevels);
+        mipLevels = 1;
+        VkDeviceSize imageSize = texWidth * texHeight * 4;
 
 		VkBuffer stagingBuffer;
 		VkDeviceMemory stagingBufferMemory;
@@ -1788,61 +1804,160 @@ protected:
 
 		void* data;
 		vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
-		memcpy(data, pixels, static_cast<size_t>(imageSize));
+		memcpy(data, pixels_top, static_cast<size_t>(imageSize));
 		vkUnmapMemory(device, stagingBufferMemory);
 
 		// 清理pixels数据结构
-		stbi_image_free(pixels);
+		stbi_image_free(pixels_top);
 
 		// VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT 告诉Vulkan这张贴图即要被读也要被写
-		outImage = createImage(outMemory, texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, mipLevels);
+        //outImage = createImage(outMemory, texWidth, texHeight, format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, mipLevels);
+        {
+			VkImageCreateInfo imageInfo{};
+			imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+			imageInfo.imageType = VK_IMAGE_TYPE_2D;
+			imageInfo.extent.width = texWidth;
+			imageInfo.extent.height = texHeight;
+			imageInfo.extent.depth = 1;
+			imageInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+			imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+			imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+			imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+			imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+			imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+			imageInfo.arrayLayers = 1;
+			imageInfo.mipLevels = mipLevels;
 
-		transitionImageLayout(outImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mipLevels);
-		copyBufferToImage(stagingBuffer, outImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
-		//transitionImageLayout(outImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+			if (vkCreateImage(device, &imageInfo, nullptr, &outImage) != VK_SUCCESS) {
+				throw std::runtime_error("failed to create image!");
+			}
 
+			VkMemoryRequirements memRequirements;
+			vkGetImageMemoryRequirements(device, outImage, &memRequirements);
+
+			VkMemoryAllocateInfo allocInfo{};
+			allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+			allocInfo.allocationSize = memRequirements.size;
+			allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+			if (vkAllocateMemory(device, &allocInfo, nullptr, &outMemory) != VK_SUCCESS) {
+				throw std::runtime_error("failed to allocate image memory!");
+			}
+
+			vkBindImageMemory(device, outImage, outMemory, 0);
+        }
+		//transitionImageLayout(outImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mipLevels);
+        {
+			VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+
+			VkImageMemoryBarrier barrier{};
+			barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+			barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+			barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			barrier.image = outImage;
+			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			barrier.subresourceRange.baseMipLevel = 0;
+			barrier.subresourceRange.levelCount = mipLevels;
+			barrier.subresourceRange.baseArrayLayer = 0;
+			barrier.subresourceRange.layerCount = 1;
+
+			VkPipelineStageFlags sourceStage;
+			VkPipelineStageFlags destinationStage;
+			sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+			destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+			vkCmdPipelineBarrier(
+				commandBuffer,
+				sourceStage, destinationStage,
+				0,
+				0, nullptr,
+				0, nullptr,
+				1, &barrier
+			);
+
+			endSingleTimeCommands(commandBuffer);
+        }
+		//copyBufferToImage(stagingBuffer, outImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+        {
+			VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+
+			VkBufferImageCopy region{};
+			region.bufferOffset = 0;
+			region.bufferRowLength = 0;
+			region.bufferImageHeight = 0;
+			region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			region.imageSubresource.mipLevel = 0;
+			region.imageSubresource.baseArrayLayer = 0;
+			region.imageSubresource.layerCount = 1;
+			region.imageOffset = { 0, 0, 0 };
+			region.imageExtent = {
+                static_cast<uint32_t>(texWidth),
+                static_cast<uint32_t>(texHeight),
+				1
+			};
+			vkCmdCopyBufferToImage(commandBuffer, stagingBuffer, outImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+			endSingleTimeCommands(commandBuffer);
+        }
+        //transitionImageLayout(outImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        {
+			VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+			VkImageMemoryBarrier barrier{};
+			barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+			barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+			barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			barrier.image = outImage;
+			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			barrier.subresourceRange.baseMipLevel = 0;
+			barrier.subresourceRange.levelCount = mipLevels;
+			barrier.subresourceRange.baseArrayLayer = 0;
+			barrier.subresourceRange.layerCount = 1;
+			VkPipelineStageFlags sourceStage;
+			VkPipelineStageFlags destinationStage;
+            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+			vkCmdPipelineBarrier(
+				commandBuffer,
+				sourceStage, destinationStage,
+				0,
+				0, nullptr,
+				0, nullptr,
+				1, &barrier
+			);
+			endSingleTimeCommands(commandBuffer);
+        }
 		vkDestroyBuffer(device, stagingBuffer, nullptr);
 		vkFreeMemory(device, stagingBufferMemory, nullptr);
 
-		generateMipmaps(outImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, mipLevels);
+		//generateMipmaps(outImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, mipLevels);
 
-		createImageView(outImageView, outImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
+		//createImageView(outImageView, outImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
+        {
+			VkImageViewCreateInfo viewInfo{};
+			viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+			viewInfo.image = outImage;
+			viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+			viewInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+			viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			viewInfo.subresourceRange.baseMipLevel = 0;
+			viewInfo.subresourceRange.levelCount = mipLevels;
+			viewInfo.subresourceRange.baseArrayLayer = 0;
+			viewInfo.subresourceRange.layerCount = 1;
+			if (vkCreateImageView(device, &viewInfo, nullptr, &outImageView) != VK_SUCCESS) {
+				throw std::runtime_error("failed to create texture image view!");
+			}
+        }
 		createSampler(outSampler, mipLevels);
         outMaxMipLevels = mipLevels;
 	}
 
-    /** 读取一个贴图路径，然后创建图像资源*/
-    void createImage(VkImage& outImage, VkDeviceMemory& outMemory, const std::string& filename)
-    {
-        int texWidth, texHeight, texChannels, mipLevels;
-        stbi_uc* pixels = readTextureResource(filename, texWidth, texHeight, texChannels, mipLevels);
-
-        VkDeviceSize imageSize = texWidth * texHeight * 4;
-
-        VkBuffer stagingBuffer;
-        VkDeviceMemory stagingBufferMemory;
-        createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-
-        void* data;
-        vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
-        memcpy(data, pixels, static_cast<size_t>(imageSize));
-        vkUnmapMemory(device, stagingBufferMemory);
-
-        // 清理pixels数据结构
-        stbi_image_free(pixels);
-
-        outImage = createImage(outMemory, texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-        transitionImageLayout(outImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        copyBufferToImage(stagingBuffer, outImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
-        transitionImageLayout(outImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-        vkDestroyBuffer(device, stagingBuffer, nullptr);
-        vkFreeMemory(device, stagingBufferMemory, nullptr);
-    }
-
     /** 创建图像资源*/
-    VkImage createImage(VkDeviceMemory& imageMemory, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, uint32_t miplevels = 1) {
+    VkImage createImage(VkDeviceMemory& imageMemory, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, uint32_t miplevels = 1) 
+    {
         VkImageCreateInfo imageInfo{};
         imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
         imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -2244,7 +2359,9 @@ private:
     /** 从图片文件中读取贴像素信息*/
     static stbi_uc* readTextureResource(const std::string& filename, int& texWidth, int& texHeight, int& texChannels, int& mipLevels)
     {
+        stbi_hdr_to_ldr_scale(2.2f);
         stbi_uc* pixels = stbi_load(filename.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+		stbi_hdr_to_ldr_scale(1.0f);
         mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
         if (!pixels) {
             throw std::runtime_error("failed to load texture image!");
