@@ -892,60 +892,60 @@ protected:
         createGraphicsPipeline(stagePipeline.pipelineLayout, stagePipeline.graphicsPipeline, stagePipeline.descriptorSetLayout, "Resources/Shaders/draw_with_PBR_vert.spv", "Resources/Shaders/draw_with_PBR_frag.spv");
 
         //~ 开始 创建场景，包括VBO，UBO，贴图等
-		StageObject hylian_shield;
-		std::string hylian_shield_obj = "Resources/Models/hylian_shield.obj";
-		std::vector<std::string> hylian_shield_pngs = {
-			"Resources/Textures/hylian_shield_c.png",
-			"Resources/Textures/hylian_shield_m.png",
-			"Resources/Textures/hylian_shield_r.png",
-			"Resources/Textures/hylian_shield_n.png",
-			"Resources/Textures/hylian_shield_o.png" };
-		createStageRenderResource(hylian_shield, hylian_shield_obj, hylian_shield_pngs);
-		stageScene.push_back(hylian_shield);
+		//StageObject hylian_shield;
+		//std::string hylian_shield_obj = "Resources/Models/hylian_shield.obj";
+		//std::vector<std::string> hylian_shield_pngs = {
+		//	"Resources/Textures/hylian_shield_c.png",
+		//	"Resources/Textures/hylian_shield_m.png",
+		//	"Resources/Textures/hylian_shield_r.png",
+		//	"Resources/Textures/hylian_shield_n.png",
+		//	"Resources/Textures/hylian_shield_o.png" };
+		//createStageRenderResource(hylian_shield, hylian_shield_obj, hylian_shield_pngs);
+		//stageScene.push_back(hylian_shield);
 
-		StageObject master_sword;
-		std::string master_sword_obj = "Resources/Models/master_sword.obj";
-		std::vector<std::string> master_sword_pngs = {
-			"Resources/Textures/master_sword_c.png",
-			"Resources/Textures/master_sword_m.png",
-			"Resources/Textures/master_sword_r.png",
-			"Resources/Textures/master_sword_n.png",
-			"Resources/Textures/master_sword_o.png" };
-		createStageRenderResource(master_sword, master_sword_obj, master_sword_pngs);
-		stageScene.push_back(master_sword);
+		//StageObject master_sword;
+		//std::string master_sword_obj = "Resources/Models/master_sword.obj";
+		//std::vector<std::string> master_sword_pngs = {
+		//	"Resources/Textures/master_sword_c.png",
+		//	"Resources/Textures/master_sword_m.png",
+		//	"Resources/Textures/master_sword_r.png",
+		//	"Resources/Textures/master_sword_n.png",
+		//	"Resources/Textures/master_sword_o.png" };
+		//createStageRenderResource(master_sword, master_sword_obj, master_sword_pngs);
+		//stageScene.push_back(master_sword);
 
-		StageObject steath;
-		std::string steath_obj = "Resources/Models/steath.obj";
-		std::vector<std::string> steath_pngs = {
-			"Resources/Textures/steath_c.png",
-			"Resources/Textures/steath_m.png",
-			"Resources/Textures/steath_r.png",
-			"Resources/Textures/steath_n.png",
-			"Resources/Textures/steath_o.png" };
-		createStageRenderResource(steath, steath_obj, steath_pngs);
-		stageScene.push_back(steath);
+		//StageObject steath;
+		//std::string steath_obj = "Resources/Models/steath.obj";
+		//std::vector<std::string> steath_pngs = {
+		//	"Resources/Textures/steath_c.png",
+		//	"Resources/Textures/steath_m.png",
+		//	"Resources/Textures/steath_r.png",
+		//	"Resources/Textures/steath_n.png",
+		//	"Resources/Textures/steath_o.png" };
+		//createStageRenderResource(steath, steath_obj, steath_pngs);
+		//stageScene.push_back(steath);
 
-        //StageObject preview_mesh;
-        //std::string preview_mesh_obj = "Resources/Models/sphere.obj";
-        //std::vector<std::string> preview_mesh_pngs = {
-        //    "Resources/Textures/default_white.png",
-        //    "Resources/Textures/default_white.png",
-        //    "Resources/Textures/default_black.png",
-        //    "Resources/Textures/default_normal.png",
-        //    "Resources/Textures/default_grey.png" };
-        //createStageRenderResource(preview_mesh, preview_mesh_obj, preview_mesh_pngs);
-        //stageScene.push_back(preview_mesh);
+        StageObject preview_mesh;
+        std::string preview_mesh_obj = "Resources/Models/sphere.obj";
+        std::vector<std::string> preview_mesh_pngs = {
+            "Resources/Textures/default_white.png",
+            "Resources/Textures/default_white.png",
+            "Resources/Textures/default_black.png",
+            "Resources/Textures/default_normal.png",
+            "Resources/Textures/default_grey.png" };
+        createStageRenderResource(preview_mesh, preview_mesh_obj, preview_mesh_pngs);
+        stageScene.push_back(preview_mesh);
 
-        //StageObject axis_guide;
-        //std::string axis_guide_obj = "Resources/Models/axis_guide.obj";
-        //std::vector<std::string> axis_guide_pngs = {
-	       // "Resources/Textures/default_white.png",
-	       // "Resources/Textures/default_white.png",
-	       // "Resources/Textures/default_black.png",
-	       // "Resources/Textures/default_normal.png",
-	       // "Resources/Textures/default_grey.png" };
-        //createStageRenderResource(axis_guide, axis_guide_obj, axis_guide_pngs);
-        //stageScene.push_back(axis_guide);
+        StageObject axis_guide;
+        std::string axis_guide_obj = "Resources/Models/axis_guide.obj";
+        std::vector<std::string> axis_guide_pngs = {
+	        "Resources/Textures/default_white.png",
+	        "Resources/Textures/default_white.png",
+	        "Resources/Textures/default_black.png",
+	        "Resources/Textures/default_normal.png",
+	        "Resources/Textures/default_grey.png" };
+        createStageRenderResource(axis_guide, axis_guide_obj, axis_guide_pngs);
+        stageScene.push_back(axis_guide);
 
         //~ 结束 创建场景，包括VBO，UBO，贴图等
     }
