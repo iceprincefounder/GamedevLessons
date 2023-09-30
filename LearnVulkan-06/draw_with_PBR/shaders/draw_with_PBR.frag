@@ -28,7 +28,7 @@ uint POINT_LIGHTS = view.lights_count[1];
 uint SPOT_LIGHTS = view.lights_count[2];
 uint SKY_MAXMIPS = view.lights_count[3];
 
-layout(set = 0, binding = 2) uniform sampler2D skycube;  // sky cubemap
+layout(set = 0, binding = 2) uniform samplerCube skycube;  // sky cubemap
 layout(set = 0, binding = 3) uniform sampler2D sampler1; // basecolor
 layout(set = 0, binding = 4) uniform sampler2D sampler2; // metalic
 layout(set = 0, binding = 5) uniform sampler2D sampler3; // roughness
@@ -274,15 +274,16 @@ void main()
 	vec3 specular = ComputeF0(0.5, base_color, metallic);
 	vec3 reflection_brdf = EnvBRDFApprox(specular, roughness, NdotV);
     float ratio = 1.00 / 1.52;
-    vec3 I = -V;
-    vec3 R = refract(I, normalize(N), ratio);
+    vec3 I = V;
+	vec3 R = refract(I, normalize(N), ratio);
+    R.z *= -1.0;
     float mip = compute_reflection_mip_from_roughness(roughness, 0);
-    vec3 reflection_L = textureLod(skycube, R.xy, mip).rgb;
+    vec3 reflection_L = textureLod(skycube, R, 0).rgb;
 	float reflection_V = GetSpecularOcclusion(NdotV, roughness * roughness, ambient_occlution.x);
 	vec3 reflection_color = reflection_L * reflection_V * reflection_brdf;
     
 
-    vec3 final_color = direct_lighting + indirect_lighting * 0.3 + reflection_color;
+    vec3 final_color = reflection_L; //direct_lighting + indirect_lighting * 0.3 + reflection_color;
 
     // Gamma correct
 	final_color = pow(final_color, vec3(0.4545));

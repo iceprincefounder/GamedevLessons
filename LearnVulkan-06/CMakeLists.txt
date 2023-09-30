@@ -89,12 +89,6 @@ function(buildProject PROJECT_NAME)
 	VERBATIM
 	COMMENT "Compiling Shaders!"
     COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/background.png ${TEXTURES_DEST}/background.png
-    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/clearsky_front.png ${TEXTURES_DEST}/clearsky_front.png
-    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/clearsky_back.png ${TEXTURES_DEST}/clearsky_back.png
-    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/clearsky_top.png ${TEXTURES_DEST}/clearsky_top.png
-    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/clearsky_bottom.png ${TEXTURES_DEST}/clearsky_bottom.png
-    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/clearsky_right.png ${TEXTURES_DEST}/clearsky_right.png
-    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/clearsky_left.png ${TEXTURES_DEST}/clearsky_left.png
     COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/hylian_shield_c.png ${TEXTURES_DEST}/hylian_shield_c.png
     COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/hylian_shield_m.png ${TEXTURES_DEST}/hylian_shield_m.png
     COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/hylian_shield_r.png ${TEXTURES_DEST}/hylian_shield_r.png

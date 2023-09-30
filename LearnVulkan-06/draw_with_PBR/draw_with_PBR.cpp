@@ -827,12 +827,12 @@ protected:
 	{
         //createImageContext(cubemapImage, cubemapImageMemory, cubemapImageView, cubemapSampler, "Resources/Textures/clear_sky.png");
         createImageHDRContext(cubemapImage, cubemapImageMemory, cubemapImageView, cubemapSampler,  cubemapMaxMips, { 
-            "Resources/Textures/clearsky_front.png",
-            "Resources/Textures/clearsky_back.png",
-            "Resources/Textures/clearsky_top.png",
-			"Resources/Textures/clearsky_bottom.png",
-			"Resources/Textures/clearsky_right.png",
-			"Resources/Textures/clearsky_left.png"});
+            "Resources/Textures/x0-nx.png",
+            "Resources/Textures/x1-px.png",
+			"Resources/Textures/y0-pz.png",
+			"Resources/Textures/y1-nz.png",
+            "Resources/Textures/z0-py.png",
+			"Resources/Textures/z1-ny.png"});
 	}
 
     /** 创建统一缓存区（UBO）*/
@@ -936,16 +936,16 @@ protected:
         createStageRenderResource(preview_mesh, preview_mesh_obj, preview_mesh_pngs);
         stageScene.push_back(preview_mesh);
 
-        StageObject axis_guide;
-        std::string axis_guide_obj = "Resources/Models/axis_guide.obj";
-        std::vector<std::string> axis_guide_pngs = {
-	        "Resources/Textures/default_white.png",
-	        "Resources/Textures/default_white.png",
-	        "Resources/Textures/default_black.png",
-	        "Resources/Textures/default_normal.png",
-	        "Resources/Textures/default_grey.png" };
-        createStageRenderResource(axis_guide, axis_guide_obj, axis_guide_pngs);
-        stageScene.push_back(axis_guide);
+        //StageObject axis_guide;
+        //std::string axis_guide_obj = "Resources/Models/axis_guide.obj";
+        //std::vector<std::string> axis_guide_pngs = {
+	       // "Resources/Textures/default_white.png",
+	       // "Resources/Textures/default_white.png",
+	       // "Resources/Textures/default_black.png",
+	       // "Resources/Textures/default_normal.png",
+	       // "Resources/Textures/default_grey.png" };
+        //createStageRenderResource(axis_guide, axis_guide_obj, axis_guide_pngs);
+        //stageScene.push_back(axis_guide);
 
         //~ 结束 创建场景，包括VBO，UBO，贴图等
     }
@@ -1494,7 +1494,7 @@ protected:
 
         glm::mat4 normalize = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(1.0f, 0.0f, 0.0f));
         UniformBufferObject ubo{};
-        ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(00.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
         ubo.proj[1][1] *= -1;
@@ -1786,30 +1786,27 @@ protected:
 	/** 读取一个HDR贴图路径，然后创建图像资源*/
 	void createImageHDRContext(VkImage& outImage, VkDeviceMemory& outMemory, VkImageView& outImageView, VkSampler& outSampler, uint32_t& outMaxMipLevels, const std::vector<std::string>& filenames)
     {
-        // TODO: 生成 HDR Cubemap 真的 Too Fucking Difficult ！！！！
-        
+        // https://matheowis.github.io/HDRI-to-CubeMap/
 		int texWidth, texHeight, texChannels, mipLevels;
-		stbi_uc* pixels_front = readTextureResource(filenames[0], texWidth, texHeight, texChannels, mipLevels);
-		stbi_uc* pixels_back = readTextureResource(filenames[1], texWidth, texHeight, texChannels, mipLevels);
-		stbi_uc* pixels_top = readTextureResource(filenames[2], texWidth, texHeight, texChannels, mipLevels);
-		stbi_uc* pixels_bottom = readTextureResource(filenames[3], texWidth, texHeight, texChannels, mipLevels);
-		stbi_uc* pixels_right = readTextureResource(filenames[4], texWidth, texHeight, texChannels, mipLevels);
-		stbi_uc* pixels_left = readTextureResource(filenames[5], texWidth, texHeight, texChannels, mipLevels);
+        stbi_uc* pixels[6];
+		for (int i = 0; i < 6; ++i) {
+			pixels[i] = readTextureResource(filenames[i], texWidth, texHeight, texChannels, mipLevels);
+		}
         mipLevels = 1;
         VkDeviceSize imageSize = texWidth * texHeight * 4;
 
 		VkBuffer stagingBuffer;
 		VkDeviceMemory stagingBufferMemory;
-		createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+		createBuffer(imageSize * 6, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
 
-		void* data;
-		vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
-		memcpy(data, pixels_top, static_cast<size_t>(imageSize));
-		vkUnmapMemory(device, stagingBufferMemory);
-
-		// 清理pixels数据结构
-		stbi_image_free(pixels_top);
-
+		for (int i = 0; i < 6; ++i) {
+            void* writeLocation;
+            vkMapMemory(device, stagingBufferMemory, imageSize * i, imageSize, 0, &writeLocation);
+			memcpy(writeLocation, pixels[i], imageSize);
+            vkUnmapMemory(device, stagingBufferMemory);
+			// 清理pixels数据结构
+			stbi_image_free(pixels[i]);
+        }
 		// VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT 告诉Vulkan这张贴图即要被读也要被写
         //outImage = createImage(outMemory, texWidth, texHeight, format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, mipLevels);
         {
@@ -1825,10 +1822,11 @@ protected:
 			imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 			imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 			imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-			imageInfo.arrayLayers = 1;
 			imageInfo.mipLevels = mipLevels;
+			imageInfo.arrayLayers = 6;
+            imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
 
-			if (vkCreateImage(device, &imageInfo, nullptr, &outImage) != VK_SUCCESS) {
+            if (vkCreateImage(device, &imageInfo, nullptr, &outImage) != VK_SUCCESS) {
 				throw std::runtime_error("failed to create image!");
 			}
 
@@ -1857,11 +1855,13 @@ protected:
 			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 			barrier.image = outImage;
-			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			barrier.subresourceRange.baseMipLevel = 0;
-			barrier.subresourceRange.levelCount = mipLevels;
-			barrier.subresourceRange.baseArrayLayer = 0;
-			barrier.subresourceRange.layerCount = 1;
+            VkImageSubresourceRange subresourceRange;
+            subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            subresourceRange.baseMipLevel = 0;
+            subresourceRange.levelCount = 1;
+            subresourceRange.baseArrayLayer = 0;
+            subresourceRange.layerCount = 6;
+            barrier.subresourceRange = subresourceRange;
 
 			VkPipelineStageFlags sourceStage;
 			VkPipelineStageFlags destinationStage;
@@ -1886,10 +1886,12 @@ protected:
 			region.bufferOffset = 0;
 			region.bufferRowLength = 0;
 			region.bufferImageHeight = 0;
-			region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			region.imageSubresource.mipLevel = 0;
-			region.imageSubresource.baseArrayLayer = 0;
-			region.imageSubresource.layerCount = 1;
+            VkImageSubresourceLayers imageSubresource;
+            imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            imageSubresource.mipLevel = 0;
+            imageSubresource.baseArrayLayer = 0;
+            imageSubresource.layerCount = 6;
+            region.imageSubresource = imageSubresource;
 			region.imageOffset = { 0, 0, 0 };
 			region.imageExtent = {
                 static_cast<uint32_t>(texWidth),
@@ -1909,11 +1911,13 @@ protected:
 			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 			barrier.image = outImage;
-			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			barrier.subresourceRange.baseMipLevel = 0;
-			barrier.subresourceRange.levelCount = mipLevels;
-			barrier.subresourceRange.baseArrayLayer = 0;
-			barrier.subresourceRange.layerCount = 1;
+			VkImageSubresourceRange subresourceRange;
+			subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			subresourceRange.baseMipLevel = 0;
+			subresourceRange.levelCount = 1;
+			subresourceRange.baseArrayLayer = 0;
+			subresourceRange.layerCount = 6;
+			barrier.subresourceRange = subresourceRange;
 			VkPipelineStageFlags sourceStage;
 			VkPipelineStageFlags destinationStage;
             barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -1940,13 +1944,13 @@ protected:
 			VkImageViewCreateInfo viewInfo{};
 			viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 			viewInfo.image = outImage;
-			viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+			viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
 			viewInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
 			viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 			viewInfo.subresourceRange.baseMipLevel = 0;
-			viewInfo.subresourceRange.levelCount = mipLevels;
+			viewInfo.subresourceRange.levelCount = 1;
 			viewInfo.subresourceRange.baseArrayLayer = 0;
-			viewInfo.subresourceRange.layerCount = 1;
+			viewInfo.subresourceRange.layerCount = 6;
 			if (vkCreateImageView(device, &viewInfo, nullptr, &outImageView) != VK_SUCCESS) {
 				throw std::runtime_error("failed to create texture image view!");
 			}
