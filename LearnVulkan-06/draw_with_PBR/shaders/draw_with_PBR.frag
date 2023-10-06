@@ -239,7 +239,7 @@ void main()
 	// Direct Lighting : DisneyDiffuse + SpecularGGX
 	vec3 direct_lighting = vec3(0.0);
 	vec3 diffuse_color = base_color.rgb * (1.0 - metallic);
-    for (uint i = 0U; i < DIRECTIONAL_LIGHTS; ++i)
+    for (uint i = 0u; i < DIRECTIONAL_LIGHTS; ++i)
     {
         vec3 L = get_directional_light_direction(i);
         vec3 H = normalize(V + L);
@@ -276,15 +276,14 @@ void main()
     float ratio = 1.00 / 1.52;
     vec3 I = V;
 	vec3 R = refract(I, normalize(N), ratio);
-    R.z *= -1.0;
-    float mip = compute_reflection_mip_from_roughness(roughness, 0);
-    vec3 reflection_L = textureLod(skycube, R, 0).rgb;
+	float mip = compute_reflection_mip_from_roughness(roughness, SKY_MAXMIPS);
+    vec3 reflection_L = textureLod(skycube, R, 0).rgb * 10.0;
 	float reflection_V = GetSpecularOcclusion(NdotV, roughness * roughness, ambient_occlution.x);
 	vec3 reflection_color = reflection_L * reflection_V * reflection_brdf;
     
 
-    vec3 final_color = reflection_L; //direct_lighting + indirect_lighting * 0.3 + reflection_color;
-
+    vec3 final_color = direct_lighting + indirect_lighting * 0.3 + reflection_color;
+	//final_color = base_color * ambient_occlution;
     // Gamma correct
 	final_color = pow(final_color, vec3(0.4545));
 

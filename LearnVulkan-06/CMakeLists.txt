@@ -87,8 +87,20 @@ function(buildProject PROJECT_NAME)
 	WORKING_DIRECTORY ${SHADERS_SRC}
     DEPENDS ${SHADERS_SRC} ${SHADER_SOURCES}
 	VERBATIM
-	COMMENT "Compiling Shaders!"
+	COMMENT "Compiling Shaders Success!"
     COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/background.png ${TEXTURES_DEST}/background.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/cubemap_X0.png ${TEXTURES_DEST}/cubemap_X0.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/cubemap_X1.png ${TEXTURES_DEST}/cubemap_X1.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/cubemap_Y2.png ${TEXTURES_DEST}/cubemap_Y2.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/cubemap_Y3.png ${TEXTURES_DEST}/cubemap_Y3.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/cubemap_Z4.png ${TEXTURES_DEST}/cubemap_Z4.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/cubemap_Z5.png ${TEXTURES_DEST}/cubemap_Z5.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/default_black.png ${TEXTURES_DEST}/default_black.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/default_grey.png ${TEXTURES_DEST}/default_grey.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/default_grid.png ${TEXTURES_DEST}/default_grid.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/default_grid_n.png ${TEXTURES_DEST}/default_grid_n.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/default_normal.png ${TEXTURES_DEST}/default_normal.png
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/default_white.png ${TEXTURES_DEST}/default_white.png
     COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/hylian_shield_c.png ${TEXTURES_DEST}/hylian_shield_c.png
     COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/hylian_shield_m.png ${TEXTURES_DEST}/hylian_shield_m.png
     COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/hylian_shield_r.png ${TEXTURES_DEST}/hylian_shield_r.png
@@ -105,18 +117,18 @@ function(buildProject PROJECT_NAME)
 	COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/steath_n.png ${TEXTURES_DEST}/steath_n.png
 	COMMAND ${CMAKE_COMMAND} -E copy ${TEXTURES_SRC}/steath_o.png ${TEXTURES_DEST}/steath_o.png
 	VERBATIM
-    COMMENT "Copying Textures!"
+    COMMENT "Copying Textures Success!"
 	COMMAND ${CMAKE_COMMAND} -E copy ${ICONS_DIR}/vulkan_renderer.png ${TEXTURES_DEST}/vulkan_renderer.png
 	COMMAND ${CMAKE_COMMAND} -E copy ${ICONS_DIR}/vulkan_renderer_small.png ${TEXTURES_DEST}/vulkan_renderer_small.png
-	COMMENT "Copying Window Icons!"
-    COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/hylian_shield.obj ${MODELS_DEST}/hylian_shield.obj
-    COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/master_sword.obj ${MODELS_DEST}/master_sword.obj
-    COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/steath.obj ${MODELS_DEST}/steath.obj
+	COMMENT "Copying Window Icons Success!"
     COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/axis_guide.obj ${MODELS_DEST}/axis_guide.obj
     COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/cube.obj ${MODELS_DEST}/cube.obj
     COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/sphere.obj ${MODELS_DEST}/sphere.obj
+    COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/hylian_shield.obj ${MODELS_DEST}/hylian_shield.obj
+    COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/master_sword.obj ${MODELS_DEST}/master_sword.obj
+    COMMAND ${CMAKE_COMMAND} -E copy ${MODELS_SRC}/steath.obj ${MODELS_DEST}/steath.obj
 	VERBATIM
-    COMMENT "Copying Models!"
+    COMMENT "Copying Models Success!"
     )
 
 	set(COMPILE_SHADER_TARGET ${PROJECT_NAME}_shader)

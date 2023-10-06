@@ -22,9 +22,9 @@ layout(location = 1) out vec2 fragTexCoord;
 
 void main()
 {
-    vec3 newPosition = vec3(inPosition.x, inPosition.y, inPosition.z + sin(global.time) * 0.25);
+    // vec3 newPosition = vec3(inPosition.x, inPosition.y, inPosition.z + sin(global.time) * 0.25);
     // Render object with MVP
-    gl_Position = ubo.proj * ubo.view * ubo.model * vec4(newPosition, 1.0);
+    gl_Position = ubo.proj * ubo.view * ubo.model * vec4(inPosition, 1.0);
     fragColor = inColor;
     fragTexCoord = inTexCoord;
 }
