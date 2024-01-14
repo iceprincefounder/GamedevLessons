@@ -54,10 +54,11 @@ function(buildProject PROJECT_NAME)
     set (CURRENT_WORKING_DIR ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 	set (ICONS_SRC ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}/appicons)
 	set (SHADERS_SRC ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}/shaders)
-	set (CONTENTS_SRC ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}/contents)
-	set (ICONS_DEST ${CURRENT_WORKING_DIR}/Resources/AppIcons)
+	set (RESOURCES_SRC ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}/resources)
+    set (RESOURCES_DEST ${CURRENT_WORKING_DIR}/Resources)
     set (SHADERS_DEST ${CURRENT_WORKING_DIR}/Resources/Shaders)
-    set (CONTENTS_DEST ${CURRENT_WORKING_DIR}/)
+    set (ICONS_DEST ${CURRENT_WORKING_DIR}/Resources/AppIcons)
+    set (ASSETSETS_DEST ${CURRENT_WORKING_DIR}/Resources/AssetSets)
 
 	if(EXISTS ${EXAMPLE_FOLDER}/main.cpp)
 		SET(MAIN_CPP ${EXAMPLE_FOLDER}/main.cpp)
@@ -90,12 +91,12 @@ function(buildProject PROJECT_NAME)
     COMMENT "Compiling Shaders Success!"
 	VERBATIM
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${ICONS_SRC}/ ${ICONS_DEST}/
-    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CONTENTS_SRC}/default_assets/models ${CONTENTS_DEST}/Resources/Models
-    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CONTENTS_SRC}/default_assets/textures ${CONTENTS_DEST}/Resources/Textures
-    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CONTENTS_SRC}/stilized_house ${CONTENTS_DEST}/ResourcesPack/StilizedHousePack
-    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CONTENTS_SRC}/stilized_house ${CONTENTS_DEST}/ResourcesPack/StilizedHousePack
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${RESOURCES_SRC}/textures/ ${RESOURCES_DEST}/Textures/
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${RESOURCES_SRC}/models/ ${RESOURCES_DEST}/Models/
     COMMENT "Copying Contents Success!"
     VERBATIM
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${ASSETSETS_DEST}
+\
     )
 
 	set(COMPILE_SHADER_TARGET ${PROJECT_NAME}_shader)

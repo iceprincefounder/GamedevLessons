@@ -1,4 +1,4 @@
-﻿// Copyright LearnVulkan-06: Draw with PBR, @xukai. All Rights Reserved.
+// Copyright LearnVulkan-06: Draw with PBR, @xukai. All Rights Reserved.
 #define GLFW_INCLUDE_VULKAN
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE // 深度缓存区，OpenGL默认是（-1.0， 1.0）Vulakn为（0.0， 1.0）
@@ -14,7 +14,9 @@
 #include <tiny_obj_loader.h>
 
 #include <iostream>
+#include <filesystem>
 #include <fstream>
+#include <cassert>
 #include <stdexcept>
 #include <algorithm>
 #include <vector>
@@ -27,6 +29,8 @@
 #include <array>
 #include <chrono>
 #include <unordered_map>
+
+namespace fs = std::filesystem;
 
 const uint32_t VIEWPORT_WIDTH = 1080;
 const uint32_t VIEWPORT_HEIGHT = 720;
@@ -181,7 +185,17 @@ struct FSwapChainSupportDetails
 
 class FVulkanRendererApp
 {
-	/** 构建 ShadowmapPass 需要的 Vulkan 资源*/
+    struct FInput {
+        glm::vec3 cameraPos;
+        glm::vec3 cameraForward;
+        glm::vec3 cameraUp;
+        glm::float32 cameraSpeed;
+        glm::float32 cameraFOV;
+        glm::float64 currentTime;
+        glm::float64 deltaTime;
+    } gloablInput;
+
+    /** 构建 ShadowmapPass 需要的 Vulkan 资源*/
 	struct FShadowmapPass {
 		float zNear, zFar;
 		int32_t width, height;
@@ -329,6 +343,12 @@ public:
 		glfwSetWindowIcon(window, 2, iconImages);
 		stbi_image_free(iconImages[0].pixels);
 		stbi_image_free(iconImages[1].pixels);
+        
+        gloablInput.cameraPos = glm::vec3(2.0, 2.0, 2.0);
+        gloablInput.cameraForward = glm::vec3(1.0, 0.0, 0.0);
+        gloablInput.cameraUp = glm::vec3(0.0, 0.0, 1.0);
+        gloablInput.cameraSpeed = 2.5;
+        gloablInput.cameraFOV = 45.0;
 	}
 
 	/** 初始化Vulkan的渲染管线*/
@@ -358,6 +378,7 @@ public:
 		while (!glfwWindowShouldClose(window))
 		{
 			glfwPollEvents();
+            updateInputs();
 			drawFrame(); // 绘制一帧
 		}
 
@@ -379,6 +400,32 @@ public:
 		app->framebufferResized = true;
 	}
 
+    void updateInputs()
+    {
+        float deltaTime = gloablInput.deltaTime;    // Time between current frame and last frame
+        float lastFrame = gloablInput.currentTime;  // Time of last frame
+
+        float currentFrame = glfwGetTime();
+        deltaTime = currentFrame - lastFrame;
+        gloablInput.currentTime = currentFrame;
+        gloablInput.deltaTime = deltaTime;
+        
+        glm::vec cameraPos = gloablInput.cameraPos;
+        glm::vec cameraFront = gloablInput.cameraForward;
+        glm::vec cameraUp = gloablInput.cameraUp;
+        glm::float32 cameraSpeed = gloablInput.cameraSpeed;
+        const float cameraDeltaMove = 2.5f * deltaTime; // adjust accordingly
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+            cameraPos += cameraDeltaMove * cameraFront;
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+            cameraPos -= cameraDeltaMove * cameraFront;
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+            cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraDeltaMove;
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+            cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraDeltaMove;
+        gloablInput.cameraPos = cameraPos;
+    }
+    
 	/** 在创建好一切必要资源后，执行绘制操作*/
 	void drawFrame()
 	{
@@ -1237,38 +1284,74 @@ protected:
 			"Resources/Shaders/draw_with_shadow_base_vert.spv", 
 			"Resources/Shaders/draw_with_shadow_base_frag.spv");
 
-		{
-			uint32_t house_element_num = 8;
-			for (uint32_t id = 0; id < house_element_num; ++id)
-			{
-				FRenderObject house;
-				std::string name = std::string("chinese_house_") + std::to_string(id);
-				std::string path_to_model = std::string("ResourcesPack/ChineseHousePack/meshes/");
-				std::string path_to_texture = std::string("ResourcesPack/ChineseHousePack/textures/");
-				std::string house_obj = path_to_model + name + std::string(".obj");
-				std::vector<std::string> house_imgs = {
-					path_to_texture + name + std::string("_bc.png"),
-					path_to_texture + name + std::string("_m.png"),
-					path_to_texture + name + std::string("_r.png"),
-					path_to_texture + name + std::string("_n.png"),
-					path_to_texture + name + std::string("_ao.png") };
-				//createRenderResource(house, house_obj, house_imgs);
-				//baseScenePass.renderObjects.push_back(house);
-			}
-
-			FRenderObject stilized_house;
-			std::string stilized_house_obj = "ResourcesPack/StilizedHousePack/meshes/stilized_house.obj";
-			std::vector<std::string> stilized_house_imgs = {
-				"ResourcesPack/StilizedHousePack/textures/stilized_house_bc.png",
-				"ResourcesPack/StilizedHousePack/textures/stilized_house_m.png",
-				"ResourcesPack/StilizedHousePack/textures/stilized_house_r.png",
-				"ResourcesPack/StilizedHousePack/textures/stilized_house_n.png",
-				"ResourcesPack/StilizedHousePack/textures/stilized_house_ao.png" };
-			createRenderResource(stilized_house, stilized_house_obj, stilized_house_imgs);
-			baseScenePass.renderObjects.push_back(stilized_house);
-		}
-
-		FRenderObject stage;
+        {
+            std::string asset_set_dir = "Resources/AssetSets";
+            for (const auto & folder : std::filesystem::directory_iterator(asset_set_dir))
+            {
+                std::string asset_set = folder.path();
+                std::string models_dir = asset_set + std::string("/models/");
+                std::string textures_dir = asset_set + std::string("/textures/");
+                if (!std::filesystem::is_directory(models_dir) ||
+                    !std::filesystem::is_directory(textures_dir))
+                {
+                    continue;
+                }
+                for (const auto & model : std::filesystem::directory_iterator(models_dir))
+                {
+                    std::string model_file = model.path();
+                    std::string model_file_name = model_file.substr(model_file.find_last_of("/\\") + 1);
+                    std::string::size_type const p(model_file_name.find_last_of('.'));
+                    std::string model_name = model_file_name.substr(0, p);
+                    
+                    std::string texture_bc = textures_dir + model_name + std::string("_bc.png");
+                    if (!std::filesystem::exists(texture_bc)) {
+                        texture_bc = std::string("Resources/Textures/default_grey.png");
+                    }
+                    std::string texture_m = textures_dir + model_name + std::string("_m.png");
+                    if (!std::filesystem::exists(texture_m)) {
+                        texture_m = std::string("Resources/Textures/default_black.png");
+                    }
+                    std::string texture_r = textures_dir + model_name + std::string("_r.png");
+                    if (!std::filesystem::exists(texture_r)) {
+                        texture_r = std::string("Resources/Textures/default_white.png");
+                    }
+                    std::string texture_n = textures_dir + model_name + std::string("_n.png");
+                    if (!std::filesystem::exists(texture_n)) {
+                        texture_n = std::string("Resources/Textures/default_normal.png");
+                    }
+                    std::string texture_ao = textures_dir + model_name + std::string("_ao.png");
+                    if (!std::filesystem::exists(texture_ao)) {
+                        texture_ao = std::string("Resources/Textures/default_white.png");
+                    }
+                    
+                    FRenderObject asset;
+                    std::string asset_obj = model_file;
+                    std::vector<std::string> asset_imgs = {
+                        texture_bc,
+                        texture_m,
+                        texture_r,
+                        texture_n,
+                        texture_ao};
+                    createRenderResource(asset, asset_obj, asset_imgs);
+                    baseScenePass.renderObjects.push_back(asset);
+                }
+            }
+        }
+        //assert(house_element_num == 0);
+        
+        if (baseScenePass.renderObjects.size() == 0) {
+            FRenderObject sphere;
+            std::string sphere_obj = "Resources/Models/sphere.obj";
+            std::vector<std::string> sphere_imgs = {
+                "Resources/Textures/default_grey.png",
+                "Resources/Textures/default_black.png",
+                "Resources/Textures/default_white.png",
+                "Resources/Textures/default_normal.png",
+                "Resources/Textures/default_white.png" };
+            createRenderResource(sphere, sphere_obj, sphere_imgs);
+            baseScenePass.renderObjects.push_back(sphere);
+        }
+        FRenderObject stage;
 		std::string stage_obj = "Resources/Models/stage.obj";
 		std::vector<std::string> stage_imgs = {
 			"Resources/Textures/default_grey.png",
@@ -1932,8 +2015,8 @@ protected:
 	void updateUniformBuffer(const uint32_t currentImageIdx)
 	{
 		static auto startTime = std::chrono::high_resolution_clock::now();
-		glm::vec3 cameraPos = glm::vec3(2.0, 2.0, 2.0);
-		float cameraFOV = 45.0f;
+		glm::vec3 cameraPos = gloablInput.cameraPos;
+		float cameraFOV = gloablInput.cameraFOV;
 		float zNear = 0.1f;
 		float zFar = 20.0f;
 

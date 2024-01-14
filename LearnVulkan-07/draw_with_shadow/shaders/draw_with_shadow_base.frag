@@ -33,8 +33,8 @@ layout(set = 0, binding = 1) uniform uniformbuffer
 } view;
 
 uint DIRECTIONAL_LIGHTS = view.lights_count[0];
-uint POINT_LIGHTS = view.lights_count[1];
-uint SPOT_LIGHTS = view.lights_count[2];
+// uint POINT_LIGHTS = view.lights_count[1];
+// uint SPOT_LIGHTS = view.lights_count[2];
 uint SKY_MAXMIPS = view.lights_count[3];
 
 layout(set = 0, binding = 2) uniform samplerCube skycubemap;  // sky cubemap

@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 3.4 FATAL_ERROR)
-cmake_policy(VERSION 3.4)
+cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
+cmake_policy(VERSION 3.5)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 
 set(PROJNAME LearnVulkan)
@@ -91,7 +91,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Compiler specific stuff
@@ -128,3 +128,4 @@ add_subdirectory(LearnVulkan-03)
 add_subdirectory(LearnVulkan-04)
 add_subdirectory(LearnVulkan-05)
 add_subdirectory(LearnVulkan-06)
+add_subdirectory(LearnVulkan-07)
