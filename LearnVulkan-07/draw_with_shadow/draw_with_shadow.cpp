@@ -1,4 +1,4 @@
-// Copyright LearnVulkan-06: Draw with PBR, @xukai. All Rights Reserved.
+﻿// Copyright LearnVulkan-06: Draw with PBR, @xukai. All Rights Reserved.
 #define GLFW_INCLUDE_VULKAN
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE // 深度缓存区，OpenGL默认是（-1.0， 1.0）Vulakn为（0.0， 1.0）
@@ -14,17 +14,18 @@
 #include <tiny_obj_loader.h>
 
 #include <iostream>
-#include <filesystem>
-#include <fstream>
 #include <cassert>
-#include <stdexcept>
-#include <algorithm>
-#include <vector>
 #include <cstring>
 #include <cstdlib>
 #include <cstdint>
+#include <algorithm>
+#include <stdexcept>
+#include <filesystem>
+#include <fstream>
+#include <regex>
 #include <limits>
 #include <optional>
+#include <vector>
 #include <set>
 #include <array>
 #include <chrono>
@@ -185,17 +186,79 @@ struct FSwapChainSupportDetails
 
 class FVulkanRendererApp
 {
-    struct FInput {
-        glm::vec3 cameraPos;
-        glm::vec3 cameraForward;
-        glm::vec3 cameraUp;
-        glm::float32 cameraSpeed;
-        glm::float32 cameraFOV;
-        glm::float64 currentTime;
-        glm::float64 deltaTime;
-    } gloablInput;
+	struct FInput {
+		glm::vec3 cameraPos;
+		glm::vec3 cameraLookat;
+		float cameraSpeed;
+		float cameraFOV;
+		float zNear;
+		float zFar;
 
-    /** 构建 ShadowmapPass 需要的 Vulkan 资源*/
+		float cameraArm;
+		float cameraYaw;
+		float cameraPitch;
+
+		bool focusCamera;
+		bool updateCamera;
+
+		float currentTime;
+		float deltaTime;
+		bool firstInit;
+		double lastMouseX, lastMouseY;
+		bool playStageRoll;
+		float rollStage;
+		bool playLightRoll;
+		float rollLight;
+
+		void resetFocus()
+		{
+			cameraPos = glm::vec3(2.0, 2.0, 2.0);
+			cameraLookat = glm::vec3(0.0, 0.0, 0.0);
+			cameraSpeed = 2.5;
+			cameraFOV = 45.0;
+			zNear = 0.1f;
+			zFar = 15.0f;
+
+			glm::mat4 transform = glm::lookAt(cameraPos, cameraLookat, glm::vec3(0.0f, 0.0f, 1.0f));
+			glm::quat rotation(transform);
+			glm::vec3 direction = glm::normalize(cameraLookat - cameraPos);
+			cameraYaw = 30.0; //glm::degrees(glm::atan(direction.x, direction.y));
+			cameraPitch = 30.0; //glm::degrees(glm::asin(direction.z));
+			cameraArm = 4.0;
+			updateCamera = false;
+			focusCamera = true;
+
+			cameraPos.x = cos(glm::radians(cameraYaw)) * cos(glm::radians(cameraPitch)) * cameraArm;
+			cameraPos.y = sin(glm::radians(cameraYaw)) * cos(glm::radians(cameraPitch)) * cameraArm;
+			cameraPos.z = sin(glm::radians(cameraPitch)) * cameraArm;
+		}
+		void resetTravel()
+		{
+			cameraPos = glm::vec3(2.0, 0.0, 0.0);
+			cameraLookat = glm::vec3(0.0, 0.0, 0.0);
+			cameraSpeed = 2.5;
+			cameraFOV = 45.0;
+			zNear = 0.1f;
+			zFar = 15.0f;
+
+			cameraArm = (float)(cameraLookat - cameraPos).length();
+			glm::mat4 transform = glm::lookAt(cameraPos, cameraLookat, glm::vec3(0.0f, 0.0f, 1.0f));
+			glm::quat rotation(transform);
+			cameraYaw = -90.0f;;
+			cameraPitch = 0.0;
+			updateCamera = false;
+			focusCamera = false;
+		}
+		void resetAnimation()
+		{
+			playStageRoll = false;
+			rollStage = 0.0;
+			playLightRoll = false;
+			rollLight = 0.0;
+		}
+	} gloablInput;
+
+	/** 构建 ShadowmapPass 需要的 Vulkan 资源*/
 	struct FShadowmapPass {
 		float zNear, zFar;
 		int32_t width, height;
@@ -226,7 +289,7 @@ class FVulkanRendererApp
 		VkDescriptorPool descriptorPool;
 		std::vector<VkDescriptorSet> descriptorSets;
 		VkPipelineLayout pipelineLayout;
-		VkPipeline pipeline;
+		std::vector<VkPipeline> pipelines;
 	} backgroundPass;
 
 	/** 构建 RenderObject 需要的 Vulkan 资源*/
@@ -252,17 +315,25 @@ class FVulkanRendererApp
 		std::vector<FRenderObject> renderObjects;	// 待渲染的物体
 		VkDescriptorSetLayout descriptorSetLayout;  // 描述符集合布局
 		VkPipelineLayout pipelineLayout;            // 渲染管线布局
-		VkPipeline pipeline;						// 渲染管线
+		std::vector<VkPipeline> pipelines;			// 渲染管线
 	} baseScenePass;
 
 	/** 全局常量*/
 	struct FGlobalConstants {
 		float time;
-		float roughness;
 		float metallic;
-		float camera_fov;
-		float zNear;
-		float zFar;
+		float roughness;
+		uint32_t specConstants;
+		uint32_t specConstantsCount;				// 特殊常数，用于优化着色器变体
+
+		void resetConstants()
+		{
+			time = 0.0f;
+			metallic = 0.0f;
+			roughness = 1.0;
+			specConstants = 0;
+			specConstantsCount = 9;
+		}
 	} globalConstants;
 
 	GLFWwindow* window;										// Window 渲染桌面
@@ -343,12 +414,14 @@ public:
 		glfwSetWindowIcon(window, 2, iconImages);
 		stbi_image_free(iconImages[0].pixels);
 		stbi_image_free(iconImages[1].pixels);
-        
-        gloablInput.cameraPos = glm::vec3(2.0, 2.0, 2.0);
-        gloablInput.cameraForward = glm::vec3(1.0, 0.0, 0.0);
-        gloablInput.cameraUp = glm::vec3(0.0, 0.0, 1.0);
-        gloablInput.cameraSpeed = 2.5;
-        gloablInput.cameraFOV = 45.0;
+		
+		gloablInput.resetFocus();
+		gloablInput.resetAnimation();
+		globalConstants.resetConstants();
+		glfwSetKeyCallback(window, keyboardCallback);
+		glfwSetMouseButtonCallback(window, mouseButtonCallback);
+		glfwSetCursorPosCallback(window, mousePositionCallback);
+		glfwSetScrollCallback(window, mouseScrollCallback);
 	}
 
 	/** 初始化Vulkan的渲染管线*/
@@ -378,7 +451,7 @@ public:
 		while (!glfwWindowShouldClose(window))
 		{
 			glfwPollEvents();
-            updateInputs();
+			updateInputs();
 			drawFrame(); // 绘制一帧
 		}
 
@@ -400,32 +473,273 @@ public:
 		app->framebufferResized = true;
 	}
 
-    void updateInputs()
-    {
-        float deltaTime = gloablInput.deltaTime;    // Time between current frame and last frame
-        float lastFrame = gloablInput.currentTime;  // Time of last frame
+	static void keyboardCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+	{
+		FVulkanRendererApp* app = reinterpret_cast<FVulkanRendererApp*>(glfwGetWindowUserPointer(window));
+		FInput* input = &app->gloablInput;
+		FGlobalConstants* constants = &app->globalConstants;
 
-        float currentFrame = glfwGetTime();
-        deltaTime = currentFrame - lastFrame;
-        gloablInput.currentTime = currentFrame;
-        gloablInput.deltaTime = deltaTime;
-        
-        glm::vec cameraPos = gloablInput.cameraPos;
-        glm::vec cameraFront = gloablInput.cameraForward;
-        glm::vec cameraUp = gloablInput.cameraUp;
-        glm::float32 cameraSpeed = gloablInput.cameraSpeed;
-        const float cameraDeltaMove = 2.5f * deltaTime; // adjust accordingly
-        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-            cameraPos += cameraDeltaMove * cameraFront;
-        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-            cameraPos -= cameraDeltaMove * cameraFront;
-        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-            cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraDeltaMove;
-        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-            cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraDeltaMove;
-        gloablInput.cameraPos = cameraPos;
-    }
-    
+		if (action == GLFW_PRESS && key == GLFW_KEY_F)
+		{
+			input->resetFocus();
+		}
+		if (action == GLFW_PRESS && key == GLFW_KEY_G)
+		{
+			input->resetTravel();
+		}
+		if (action == GLFW_PRESS && key == GLFW_KEY_R)
+		{
+			input->resetAnimation();
+		}
+		if (action == GLFW_PRESS && key == GLFW_KEY_M)
+		{
+			input->playStageRoll = !input->playStageRoll;
+		}
+		if (action == GLFW_PRESS && key == GLFW_KEY_L)
+		{
+			input->playLightRoll = !input->playLightRoll;
+		}
+		if (action == GLFW_PRESS && key == GLFW_KEY_0)
+		{
+			constants->specConstants = 0;
+		}
+		if (action == GLFW_PRESS && key == GLFW_KEY_1)
+		{
+			constants->specConstants = 1;
+		}
+		if (action == GLFW_PRESS && key == GLFW_KEY_2)
+		{
+			constants->specConstants = 2;
+		}
+		if (action == GLFW_PRESS && key == GLFW_KEY_3)
+		{
+			constants->specConstants = 3;
+		}
+		if (action == GLFW_PRESS && key == GLFW_KEY_4)
+		{
+			constants->specConstants = 4;
+		}
+		if (action == GLFW_PRESS && key == GLFW_KEY_5)
+		{
+			constants->specConstants = 5;
+		}
+		if (action == GLFW_PRESS && key == GLFW_KEY_6)
+		{
+			constants->specConstants = 6;
+		}
+		if (action == GLFW_PRESS && key == GLFW_KEY_P)
+		{
+			constants->specConstants = (constants->specConstants == 7) ? 8 : 7;
+		}
+	}
+
+	static void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
+	{
+		FVulkanRendererApp* app = reinterpret_cast<FVulkanRendererApp*>(glfwGetWindowUserPointer(window));
+		FInput* input = &app->gloablInput;
+
+		if (action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_RIGHT)
+		{
+			input->updateCamera = true;
+			input->firstInit = true;
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		}
+		if (action == GLFW_RELEASE && button == GLFW_MOUSE_BUTTON_RIGHT)
+		{
+			input->updateCamera = false;
+			input->firstInit = true;
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		}
+	}
+
+	static void mousePositionCallback(GLFWwindow* window, double xpos, double ypos)
+	{
+		FVulkanRendererApp* app = reinterpret_cast<FVulkanRendererApp*>(glfwGetWindowUserPointer(window));
+		FInput* input = &app->gloablInput;
+
+		if (!input->updateCamera)
+		{
+			return;
+		}
+
+		if (input->firstInit)
+		{
+			input->lastMouseX = xpos;
+			input->lastMouseY = ypos;
+			input->firstInit = false;
+		}
+
+		float cameraYaw = input->cameraYaw;
+		float cameraPitch = input->cameraPitch;
+
+		float xoffset = (float)(xpos - input->lastMouseX);
+		float yoffset = (float)(ypos - input->lastMouseY);
+		input->lastMouseX = xpos;
+		input->lastMouseY = ypos;
+
+		float sensitivityX = 1.0;
+		float sensitivityY = 0.5;
+		xoffset *= sensitivityX;
+		yoffset *= sensitivityY;
+
+		cameraYaw -= xoffset;
+		cameraPitch += yoffset;
+		if (cameraPitch > 89.0)
+			cameraPitch = 89.0;
+		if (cameraPitch < -89.0)
+			cameraPitch = -89.0;
+
+		if (input->focusCamera)
+		{
+			glm::vec3 cameraPos = input->cameraPos;
+			float cameraArm = input->cameraArm;
+			cameraPos.x = cos(glm::radians(cameraYaw)) * cos(glm::radians(cameraPitch)) * cameraArm;
+			cameraPos.y = sin(glm::radians(cameraYaw)) * cos(glm::radians(cameraPitch)) * cameraArm;
+			cameraPos.z = sin(glm::radians(cameraPitch)) * cameraArm;
+			input->cameraPos = cameraPos;
+			input->cameraYaw = cameraYaw;
+			input->cameraPitch = cameraPitch;
+		}
+		else
+		{
+			// @TODO: 鼠标右键控制相机的旋转
+		}
+	}
+
+	static void mouseScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
+	{
+		FVulkanRendererApp* app = reinterpret_cast<FVulkanRendererApp*>(glfwGetWindowUserPointer(window));
+		FInput* input = &app->gloablInput;
+
+		if (input->focusCamera)
+		{
+			glm::vec3 cameraPos = input->cameraPos;
+			glm::vec3 cameraLookat = input->cameraLookat;
+			glm::vec3 lookatToPos = cameraLookat - cameraPos;
+			glm::vec3 direction = glm::normalize(lookatToPos);
+			float cameraDeltaMove = (float)yoffset * 0.5f;
+			float camerArm = input->cameraArm;
+			camerArm += cameraDeltaMove;
+			camerArm = glm::max(camerArm, 1.0f);
+			cameraPos = cameraLookat - camerArm * direction;
+			input->cameraPos = cameraPos;
+			input->cameraArm = camerArm;
+		}
+	}
+
+	void updateInputs()
+	{
+		float deltaTime = (float)gloablInput.deltaTime;    // Time between current frame and last frame
+		float lastFrame = (float)gloablInput.currentTime;  // Time of last frame
+
+		float currentFrame = (float)glfwGetTime();
+		deltaTime = currentFrame - lastFrame;
+		
+		bool focusCamera = gloablInput.focusCamera;
+		glm::vec3 cameraPos = gloablInput.cameraPos;
+		glm::vec3 cameraLookat = gloablInput.cameraLookat;
+		glm::vec3 cameraForward = glm::vec3(-1.0, 0.0, 0.0);
+		glm::vec3 cameraUp = glm::vec3(0.0, 0.0, 1.0);
+		float cameraSpeed = gloablInput.cameraSpeed;
+		float cameraYaw = gloablInput.cameraYaw;
+		float cameraPitch = gloablInput.cameraPitch;
+		glm::vec3 cameraDirection = glm::normalize(cameraLookat - cameraPos);
+		const float cameraDeltaMove = 2.5f * deltaTime; // adjust accordingly
+
+		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+		{
+			if (focusCamera)
+			{
+				float cameraArm = gloablInput.cameraArm;
+				cameraArm -= cameraDeltaMove;
+				cameraArm = glm::max(cameraArm, 1.0f);
+				cameraPos = cameraLookat - cameraArm * cameraDirection;
+				gloablInput.cameraPos = cameraPos;
+				gloablInput.cameraArm = cameraArm;
+			}
+			else
+			{
+				gloablInput.cameraPos += cameraDeltaMove * cameraDirection;
+			}
+			gloablInput.cameraLookat = focusCamera ? cameraLookat : (cameraPos + cameraDirection);
+		}
+		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+		{
+			if (focusCamera)
+			{
+				float cameraArm = gloablInput.cameraArm;
+				cameraArm += cameraDeltaMove;
+				cameraArm = glm::max(cameraArm, 1.0f);
+				cameraPos = cameraLookat - cameraArm * cameraDirection;
+				gloablInput.cameraPos = cameraPos;
+				gloablInput.cameraArm = cameraArm;
+			}
+			else
+			{
+				gloablInput.cameraPos -= cameraDeltaMove * cameraDirection;
+			}
+			gloablInput.cameraLookat = focusCamera ? cameraLookat : (cameraPos + cameraDirection);
+		}
+		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+		{
+			if (focusCamera)
+			{
+				cameraYaw += cameraDeltaMove * 45.0f;
+				float cameraArm = gloablInput.cameraArm;
+				cameraPos.x = cos(glm::radians(cameraYaw)) * cos(glm::radians(cameraPitch)) * cameraArm;
+				cameraPos.y = sin(glm::radians(cameraYaw)) * cos(glm::radians(cameraPitch)) * cameraArm;
+				gloablInput.cameraYaw = cameraYaw;
+			}
+			else
+			{
+				cameraPos -= glm::normalize(glm::cross(cameraForward, cameraUp)) * cameraDeltaMove;
+				cameraLookat = cameraPos + cameraForward;
+			}
+			gloablInput.cameraPos = cameraPos;
+			gloablInput.cameraLookat = cameraLookat;
+		}
+		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+		{
+			if (focusCamera)
+			{
+				cameraYaw -= cameraDeltaMove * 45.0f;
+				float cameraArm = gloablInput.cameraArm;
+				cameraPos.x = cos(glm::radians(cameraYaw)) * cos(glm::radians(cameraPitch)) * cameraArm;
+				cameraPos.y = sin(glm::radians(cameraYaw)) * cos(glm::radians(cameraPitch)) * cameraArm;
+				gloablInput.cameraYaw = cameraYaw;
+			}
+			else
+			{
+				cameraPos += glm::normalize(glm::cross(cameraForward, cameraUp)) * cameraDeltaMove;
+				cameraLookat = cameraPos + cameraForward;
+			}
+			gloablInput.cameraPos = cameraPos;
+			gloablInput.cameraLookat = cameraLookat;
+		}
+		if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+		{
+			if (!focusCamera)
+			{
+				cameraPos.z -= cameraDeltaMove;
+				cameraLookat = cameraPos + cameraForward;
+				gloablInput.cameraPos = cameraPos;
+				gloablInput.cameraLookat = cameraLookat;
+			}
+		}
+		if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+		{
+			if (!focusCamera)
+			{
+				cameraPos.z += cameraDeltaMove;
+				cameraLookat = cameraPos + cameraForward;
+				gloablInput.cameraPos = cameraPos;
+				gloablInput.cameraLookat = cameraLookat;
+			}
+		}
+		gloablInput.currentTime = currentFrame;
+		gloablInput.deltaTime = deltaTime;
+	}
+
 	/** 在创建好一切必要资源后，执行绘制操作*/
 	void drawFrame()
 	{
@@ -1252,7 +1566,7 @@ protected:
 	{
 		auto createRenderResource = [this](FRenderObject& outObject, const std::string& objfile, const std::vector<std::string>& pngfiles) -> void
 		{
-			createVertices(outObject.vertices, outObject.indices, objfile);
+			createGeometry(outObject.vertices, outObject.indices, objfile);
 			outObject.textureImages.resize(pngfiles.size());
 			outObject.textureImageMemorys.resize(pngfiles.size());
 			outObject.textureImageViews.resize(pngfiles.size());
@@ -1277,81 +1591,83 @@ protected:
 		uint32_t sampler_number = 5;
 		// 创建场景渲染流水线和着色器
 		createDescriptorSetLayout(baseScenePass.descriptorSetLayout, sampler_number);
-		createPipeline(
+		uint32_t specConstantsCount = globalConstants.specConstantsCount;
+		baseScenePass.pipelines.resize(specConstantsCount);
+		CreateGraphicsPipelines(
 			baseScenePass.pipelineLayout, 
-			baseScenePass.pipeline, 
+			baseScenePass.pipelines, specConstantsCount,
 			baseScenePass.descriptorSetLayout, 
 			"Resources/Shaders/draw_with_shadow_base_vert.spv", 
 			"Resources/Shaders/draw_with_shadow_base_frag.spv");
 
-        {
-            std::string asset_set_dir = "Resources/AssetSets";
-            for (const auto & folder : std::filesystem::directory_iterator(asset_set_dir))
-            {
-                std::string asset_set = folder.path();
-                std::string models_dir = asset_set + std::string("/models/");
-                std::string textures_dir = asset_set + std::string("/textures/");
-                if (!std::filesystem::is_directory(models_dir) ||
-                    !std::filesystem::is_directory(textures_dir))
-                {
-                    continue;
-                }
-                for (const auto & model : std::filesystem::directory_iterator(models_dir))
-                {
-                    std::string model_file = model.path();
-                    std::string model_file_name = model_file.substr(model_file.find_last_of("/\\") + 1);
-                    std::string::size_type const p(model_file_name.find_last_of('.'));
-                    std::string model_name = model_file_name.substr(0, p);
-                    
-                    std::string texture_bc = textures_dir + model_name + std::string("_bc.png");
-                    if (!std::filesystem::exists(texture_bc)) {
-                        texture_bc = std::string("Resources/Textures/default_grey.png");
-                    }
-                    std::string texture_m = textures_dir + model_name + std::string("_m.png");
-                    if (!std::filesystem::exists(texture_m)) {
-                        texture_m = std::string("Resources/Textures/default_black.png");
-                    }
-                    std::string texture_r = textures_dir + model_name + std::string("_r.png");
-                    if (!std::filesystem::exists(texture_r)) {
-                        texture_r = std::string("Resources/Textures/default_white.png");
-                    }
-                    std::string texture_n = textures_dir + model_name + std::string("_n.png");
-                    if (!std::filesystem::exists(texture_n)) {
-                        texture_n = std::string("Resources/Textures/default_normal.png");
-                    }
-                    std::string texture_ao = textures_dir + model_name + std::string("_ao.png");
-                    if (!std::filesystem::exists(texture_ao)) {
-                        texture_ao = std::string("Resources/Textures/default_white.png");
-                    }
-                    
-                    FRenderObject asset;
-                    std::string asset_obj = model_file;
-                    std::vector<std::string> asset_imgs = {
-                        texture_bc,
-                        texture_m,
-                        texture_r,
-                        texture_n,
-                        texture_ao};
-                    createRenderResource(asset, asset_obj, asset_imgs);
-                    baseScenePass.renderObjects.push_back(asset);
-                }
-            }
-        }
-        //assert(house_element_num == 0);
-        
-        if (baseScenePass.renderObjects.size() == 0) {
-            FRenderObject sphere;
-            std::string sphere_obj = "Resources/Models/sphere.obj";
-            std::vector<std::string> sphere_imgs = {
-                "Resources/Textures/default_grey.png",
-                "Resources/Textures/default_black.png",
-                "Resources/Textures/default_white.png",
-                "Resources/Textures/default_normal.png",
-                "Resources/Textures/default_white.png" };
-            createRenderResource(sphere, sphere_obj, sphere_imgs);
-            baseScenePass.renderObjects.push_back(sphere);
-        }
-        FRenderObject stage;
+		{
+			std::string asset_set_dir = "Resources/AssetSets";
+			for (const auto & folder : std::filesystem::directory_iterator(asset_set_dir))
+			{
+				std::string asset_set = folder.path().generic_string();
+				std::string models_dir = asset_set + std::string("/models/");
+				std::string textures_dir = asset_set + std::string("/textures/");
+				if (!std::filesystem::is_directory(models_dir) ||
+					!std::filesystem::is_directory(textures_dir))
+				{
+					continue;
+				}
+				for (const auto & model : std::filesystem::directory_iterator(models_dir))
+				{
+					std::string model_file = model.path().generic_string();
+					std::string model_file_name = model_file.substr(model_file.find_last_of("/\\") + 1);
+					std::string::size_type const p(model_file_name.find_last_of('.'));
+					std::string model_name = model_file_name.substr(0, p);
+					
+					std::string texture_bc = textures_dir + model_name + std::string("_bc.png");
+					if (!std::filesystem::exists(texture_bc)) {
+						texture_bc = std::string("Resources/Textures/default_grey.png");
+					}
+					std::string texture_m = textures_dir + model_name + std::string("_m.png");
+					if (!std::filesystem::exists(texture_m)) {
+						texture_m = std::string("Resources/Textures/default_black.png");
+					}
+					std::string texture_r = textures_dir + model_name + std::string("_r.png");
+					if (!std::filesystem::exists(texture_r)) {
+						texture_r = std::string("Resources/Textures/default_white.png");
+					}
+					std::string texture_n = textures_dir + model_name + std::string("_n.png");
+					if (!std::filesystem::exists(texture_n)) {
+						texture_n = std::string("Resources/Textures/default_normal.png");
+					}
+					std::string texture_ao = textures_dir + model_name + std::string("_ao.png");
+					if (!std::filesystem::exists(texture_ao)) {
+						texture_ao = std::string("Resources/Textures/default_white.png");
+					}
+					
+					FRenderObject asset;
+					std::string asset_obj = model_file;
+					std::vector<std::string> asset_imgs = {
+						texture_bc,
+						texture_m,
+						texture_r,
+						texture_n,
+						texture_ao};
+					createRenderResource(asset, asset_obj, asset_imgs);
+					baseScenePass.renderObjects.push_back(asset);
+				}
+			}
+		}
+		//assert(house_element_num == 0);
+		
+		if (baseScenePass.renderObjects.size() == 0) {
+			FRenderObject sphere;
+			std::string sphere_obj = "Resources/Models/sphere.obj";
+			std::vector<std::string> sphere_imgs = {
+				"Resources/Textures/default_grey.png",
+				"Resources/Textures/default_black.png",
+				"Resources/Textures/default_white.png",
+				"Resources/Textures/default_normal.png",
+				"Resources/Textures/default_white.png" };
+			createRenderResource(sphere, sphere_obj, sphere_imgs);
+			baseScenePass.renderObjects.push_back(sphere);
+		}
+		FRenderObject stage;
 		std::string stage_obj = "Resources/Models/stage.obj";
 		std::vector<std::string> stage_imgs = {
 			"Resources/Textures/default_grey.png",
@@ -1382,12 +1698,13 @@ protected:
 			backgroundPass.descriptorSetLayout,
 			backgroundPass.imageView,
 			backgroundPass.sampler);
-		createPipeline(
-			backgroundPass.pipelineLayout, 
-			backgroundPass.pipeline, 
+		backgroundPass.pipelines.resize(1);
+		CreateGraphicsPipelines(
+			backgroundPass.pipelineLayout,
+			backgroundPass.pipelines, 1,
 			backgroundPass.descriptorSetLayout, 
 			"Resources/Shaders/draw_with_shadow_bg_vert.spv", 
-			"Resources/Shaders/draw_with_shadow_bg_frag.spv", 
+			"Resources/Shaders/draw_with_shadow_bg_frag.spv",
 			VK_FALSE, VK_CULL_MODE_NONE);
 	}
 
@@ -1527,7 +1844,7 @@ protected:
 			vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
 			// 【主场景】渲染背景面片
-			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, backgroundPass.pipeline);
+			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, backgroundPass.pipelines[0]);
 			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, backgroundPass.pipelineLayout, 0, 1, &backgroundPass.descriptorSets[currentFrame], 0, nullptr);
 			vkCmdPushConstants(commandBuffer, backgroundPass.pipelineLayout, VK_SHADER_STAGE_ALL, 0, sizeof(FGlobalConstants), &globalConstants);
 			vkCmdDraw(commandBuffer, 6, 1, 0, 0);
@@ -1535,7 +1852,9 @@ protected:
 			// 【主场景】渲染场景
 			for (size_t i = 0; i < baseScenePass.renderObjects.size(); i++)
 			{
-				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, baseScenePass.pipeline);
+				uint32_t specConstants = globalConstants.specConstants;
+				VkPipeline baseScenePassPipeline = baseScenePass.pipelines[specConstants];
+				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, baseScenePassPipeline);
 				FRenderObject renderObject = baseScenePass.renderObjects[i];
 				VkBuffer objectVertexBuffers[] = { renderObject.vertexBuffer };
 				VkDeviceSize objectOffsets[] = { 0 };
@@ -1630,7 +1949,7 @@ protected:
 		// 清理 backgroundPass
 		vkDestroyDescriptorSetLayout(device, backgroundPass.descriptorSetLayout, nullptr);
 		vkDestroyPipelineLayout(device, backgroundPass.pipelineLayout, nullptr);
-		vkDestroyPipeline(device, backgroundPass.pipeline, nullptr);
+		vkDestroyPipeline(device, backgroundPass.pipelines[0], nullptr);
 		vkDestroyDescriptorPool(device, backgroundPass.descriptorPool, nullptr);
 		vkDestroyImageView(device, backgroundPass.imageView, nullptr);
 		vkDestroySampler(device, backgroundPass.sampler, nullptr);
@@ -1640,7 +1959,10 @@ protected:
 		// 清理 baseScenePass
 		vkDestroyDescriptorSetLayout(device, baseScenePass.descriptorSetLayout, nullptr);
 		vkDestroyPipelineLayout(device, baseScenePass.pipelineLayout, nullptr);
-		vkDestroyPipeline(device, baseScenePass.pipeline, nullptr);
+		for (uint32_t i = 0; i < globalConstants.specConstantsCount; i++)
+		{
+			vkDestroyPipeline(device, baseScenePass.pipelines[i], nullptr);
+		}
 		for (size_t i = 0; i < baseScenePass.renderObjects.size(); i++)
 		{
 			FRenderObject renderObject = baseScenePass.renderObjects[i];
@@ -1956,7 +2278,7 @@ protected:
 	}
 
 	/** 从文件中读取顶点和点序*/
-	void createVertices(std::vector<FVertex>& outVertices, std::vector<uint32_t>& outIndices, const std::string& filename)
+	void createGeometry(std::vector<FVertex>& outVertices, std::vector<uint32_t>& outIndices, const std::string& filename)
 	{
 		readModelAsset(filename, outVertices, outIndices);
 	}
@@ -2014,18 +2336,17 @@ protected:
 	/** 更新统一缓存区（UBO）*/
 	void updateUniformBuffer(const uint32_t currentImageIdx)
 	{
-		static auto startTime = std::chrono::high_resolution_clock::now();
 		glm::vec3 cameraPos = gloablInput.cameraPos;
+		glm::vec3 cameraLookat = gloablInput.cameraLookat;
+		glm::vec3 cameraUp = glm::vec3(0.0, 0.0, 1.0);
 		float cameraFOV = gloablInput.cameraFOV;
-		float zNear = 0.1f;
-		float zFar = 20.0f;
+		float zNear = gloablInput.zNear;
+		float zFar = gloablInput.zFar;
 
+		static auto startTime = std::chrono::high_resolution_clock::now();
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 		globalConstants.time = time;
-		globalConstants.camera_fov = cameraFOV;
-		globalConstants.zNear = zNear;
-		globalConstants.zFar = zFar;
 
 		shadowmapPass.zNear = zNear;
 		shadowmapPass.zFar = zFar;
@@ -2033,10 +2354,11 @@ protected:
 		FLight light;
 		glm::vec3 center = glm::vec3(0.0f);
 		glm::vec3 lightPos = glm::vec3(4.0f, 0.0f, 4.0f);
-		//lightPos.x *= abs(sin(glm::radians(time * 30.0f)));
-		//lightPos.y *= abs(cos(glm::radians(time * 30.0f)));
-		//lightPos.x = cos(glm::radians(time * 45.0f)) * 4.0f;
-		//lightPos.y = sin(glm::radians(time * 45.0f)) * 4.0f;
+		float rollLight = gloablInput.playLightRoll ? 
+			(gloablInput.rollLight + gloablInput.deltaTime * 45.0f) : gloablInput.rollLight;
+		gloablInput.rollLight = rollLight;
+		lightPos.x = cos(glm::radians(rollLight)) * 4.0f;
+		lightPos.y = sin(glm::radians(rollLight)) * 4.0f;
 		glm::vec3 lightDir = glm::normalize(lightPos - center);
 
 		light.position = glm::vec4(lightPos, 0.0);
@@ -2044,15 +2366,17 @@ protected:
 		light.direction = glm::vec4(lightDir, 0.0);
 		light.info = glm::vec4(0.0, 0.0, 0.0, 0.0);
 
-		glm::mat4 localToWorld = glm::rotate(glm::mat4(1.0f), time * glm::radians(15.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		float rollStage = gloablInput.playStageRoll ?
+			(gloablInput.rollStage + gloablInput.deltaTime * glm::radians(15.0f)) : gloablInput.rollStage;
+		gloablInput.rollStage = rollStage;
+		glm::mat4 localToWorld = glm::rotate(glm::mat4(1.0f), rollStage, glm::vec3(0.0f, 0.0f, 1.0f));
 		glm::mat4 shadowView = glm::lookAt(lightPos, glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 		glm::mat4 shadowProjection = glm::perspective(glm::radians(cameraFOV), 1.0f, shadowmapPass.zNear, shadowmapPass.zFar);
 		shadowProjection[1][1] *= -1;
 
-		glm::mat4 normalize = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 		FUniformBufferBase UBOBaseData{};
 		UBOBaseData.model = localToWorld;
-		UBOBaseData.view = glm::lookAt(cameraPos, center, glm::vec3(0.0f, 0.0f, 1.0f));
+		UBOBaseData.view = glm::lookAt(cameraPos, cameraLookat, cameraUp);
 		UBOBaseData.proj = glm::perspective(glm::radians(cameraFOV), swapChainExtent.width / (float)swapChainExtent.height, zNear, zFar);
 		UBOBaseData.proj[1][1] *= -1;
 
@@ -2105,11 +2429,12 @@ protected:
 	}
 
 	/**创建图形渲染管线*/
-	void createPipeline(
-		VkPipelineLayout& outPipelineLayout, 
-		VkPipeline& outPipeline, 
-		const VkDescriptorSetLayout& inDescriptorSetLayout, 
-		const std::string& vert_filename, 
+	void CreateGraphicsPipelines(
+		VkPipelineLayout& outPipelineLayout,
+		std::vector<VkPipeline>& outPipelines,
+		const uint32_t specConstantsCount,
+		const VkDescriptorSetLayout& inDescriptorSetLayout,
+		const std::string& vert_filename,
 		const std::string& frag_filename,
 		const VkBool32 bDepthTest = VK_TRUE, 
 		const VkCullModeFlags CullMode = VK_CULL_MODE_BACK_BIT)
@@ -2257,9 +2582,25 @@ protected:
 		pipelineInfo.subpass = 0;
 		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
-		if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &outPipeline) != VK_SUCCESS)
+		// Use specialization constants 优化着色器变体
+		for (uint32_t i = 0; i < specConstantsCount; i++)
 		{
-			throw std::runtime_error("failed to create graphics pipeline!");
+			uint32_t specConstants = i;
+			VkSpecializationMapEntry specializationMapEntry = VkSpecializationMapEntry{};
+			specializationMapEntry.constantID = 0;
+			specializationMapEntry.offset = 0;
+			specializationMapEntry.size = sizeof(uint32_t);
+			VkSpecializationInfo specializationInfo = VkSpecializationInfo();
+			specializationInfo.mapEntryCount = 1;
+			specializationInfo.pMapEntries = &specializationMapEntry;
+			specializationInfo.dataSize = sizeof(uint32_t);
+			specializationInfo.pData = &specConstants;
+			shaderStages[1].pSpecializationInfo = &specializationInfo;
+
+			if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &outPipelines[i]) != VK_SUCCESS)
+			{
+				throw std::runtime_error("failed to create graphics pipeline!");
+			}
 		}
 
 		vkDestroyShaderModule(device, fragShaderModule, nullptr);
@@ -3065,6 +3406,7 @@ private:
 		mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
 		if (!pixels) {
 			throw std::runtime_error("failed to load texture image!");
+			assert(true);
 		}
 		return pixels;
 	}
@@ -3076,6 +3418,7 @@ private:
 		mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
 		if (!pixels) {
 			throw std::runtime_error("failed to load texture image!");
+			assert(true);
 		}
 		return pixels;
 	}
@@ -3090,6 +3433,7 @@ private:
 
 		if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filename.c_str())) {
 			throw std::runtime_error(warn + err);
+			assert(true);
 		}
 
 		std::unordered_map<FVertex, uint32_t> uniqueVertices{};

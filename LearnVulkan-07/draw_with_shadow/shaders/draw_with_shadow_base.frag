@@ -1,14 +1,15 @@
 #version 450
 
+// Use this constant to control the flow of the shader depending on the SPEC_CONSTANTS value 
+// selected at pipeline creation time
+layout (constant_id = 0) const int SPEC_CONSTANTS = 0;
+
 // push constants block
 layout( push_constant ) uniform constants
 {
 	float time;
 	float roughness;
 	float metallic;
-	float camera_fov;
-	float zNear;
-	float zFar;
 } global;
 
 struct light
@@ -55,7 +56,6 @@ layout(location = 0) out vec4 outColor;
 
 const float PI = 3.14159265359;
 vec3 F0 = vec3(0.04);
-
 
 float saturate(float t)
 {
@@ -279,6 +279,7 @@ float ShadowDepthProject(vec4 ShadowCoord, vec2 Offset)
 	return ShadowFactor;
 }
 
+
 // Percentage Closer Filtering (PCF)
 float ComputePCF(vec4 sc /*shadow croodinate*/, int r /*filtering range*/)
 {
@@ -304,13 +305,6 @@ float ComputePCF(vec4 sc /*shadow croodinate*/, int r /*filtering range*/)
 
 void main()
 {
-	// DEBUG ARGS
-	//vec3 BaseColor = vec3(0.3);
-	//float Metallic = 1.0;
-	//float Roughness = 0.1;
-	//vec3 Normal = ComputeNormal();
-	//vec3 AmbientOcclution = vec3(1.0);
-
 	vec3 BaseColor = texture(sampler1, fragTexCoord).rgb;
 	float Metallic = saturate(texture(sampler2, fragTexCoord).r);
 	float Roughness = saturate(texture(sampler3, fragTexCoord).r);
@@ -366,13 +360,41 @@ void main()
 	float Reflection_V = GetSpecularOcclusion(NdotV, Roughness * Roughness, AO);
 	vec3 ReflectionColor = Reflection_L * Reflection_V * ReflectionBRDF;
 
-	vec4 ShadowCoord = ComputeShadowCoord();
-	//float ShadowFactor = ShadowDepthProject(ShadowCoord / ShadowCoord.w, vec2(0.0));
-	float ShadowFactor = ComputePCF(ShadowCoord / ShadowCoord.w, 1);
+	float ShadowFactor = 1.0;
+	if (SPEC_CONSTANTS == 7)
+	{
+		vec4 ShadowCoord = ComputeShadowCoord();
+		ShadowFactor = ShadowDepthProject(ShadowCoord / ShadowCoord.w, vec2(0.0));
+	}
+	if (SPEC_CONSTANTS == 0 || SPEC_CONSTANTS == 8)
+	{
+		vec4 ShadowCoord = ComputeShadowCoord();
+		ShadowFactor = ComputePCF(ShadowCoord / ShadowCoord.w, 1);
+	}
+
 	vec3 FinalColor = DirectLighting + IndirectLighting * 0.3 + ReflectionColor;
 	// Gamma correct
 	FinalColor = pow(FinalColor, vec3(0.4545));
 
-	//outColor = vec4(vec3(ShadowFactor), 1.0);
-	outColor = vec4(FinalColor * ShadowFactor, 1.0);
+	switch (SPEC_CONSTANTS) {
+		case 0:
+			outColor = vec4(FinalColor * ShadowFactor, 1.0); break;
+		case 1:
+			outColor = vec4(vec3(BaseColor), 1.0); break;
+		case 2:
+			outColor = vec4(vec3(Metallic), 1.0); break;
+		case 3:
+			outColor = vec4(vec3(Roughness), 1.0); break;
+		case 4:
+			outColor = vec4(vec3(Normal), 1.0); break;
+		case 5:
+			outColor = vec4(vec3(AmbientOcclution), 1.0); break;
+		case 6:
+			outColor = vec4(vec3(FinalColor), 1.0); break;
+		case 7:
+		case 8:
+			outColor = vec4(vec3(ShadowFactor), 1.0); break;
+		default:
+			outColor = vec4(FinalColor * ShadowFactor, 1.0); break;
+	};
 }
