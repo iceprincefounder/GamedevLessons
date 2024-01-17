@@ -31,7 +31,6 @@
 #include <chrono>
 #include <unordered_map>
 
-namespace fs = std::filesystem;
 
 const uint32_t VIEWPORT_WIDTH = 1080;
 const uint32_t VIEWPORT_HEIGHT = 720;
