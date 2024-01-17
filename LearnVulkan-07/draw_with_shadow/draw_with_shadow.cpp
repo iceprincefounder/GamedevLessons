@@ -36,7 +36,7 @@ namespace fs = std::filesystem;
 const uint32_t VIEWPORT_WIDTH = 1080;
 const uint32_t VIEWPORT_HEIGHT = 720;
 #define SHADOWMAP_DIM 1024
-#define DEFAULT_SHADOWMAP_FILTER VK_FILTER_LINEAR
+
 
 /** 同时渲染多帧的最大帧数*/
 const int MAX_FRAMES_IN_FLIGHT = 2;
@@ -107,7 +107,7 @@ struct FUniformBufferBase {
 struct FLight
 {
 	glm::vec4 position;
-	glm::vec4 color;
+	glm::vec4 color; // rgb for color, a for intensity
 	glm::vec4 direction;
 	glm::vec4 info;
 };
@@ -121,7 +121,9 @@ struct FUniformBufferView {
 	FLight directional_lights[4];
 	FLight point_lights[4];
 	FLight spot_lights[4];
-	// [0] for directional_lights, [1] for point_lights, [2] for spot_lights, [3] for cube map max miplevels
+	// lights_count:
+	// [0] for number of directional_lights, [1] for number of point_lights, 
+	// [2] for number of spot_lights, [3] for number of cube map max miplevels.
 	glm::ivec4 lights_count;
 	glm::float32 zNear;
 	glm::float32 zFar;
@@ -210,7 +212,7 @@ class FVulkanRendererApp
 		bool playLightRoll;
 		float rollLight;
 
-		void resetFocus()
+		void resetToFocus()
 		{
 			cameraPos = glm::vec3(2.0, 2.0, 2.0);
 			cameraLookat = glm::vec3(0.0, 0.0, 0.0);
@@ -232,7 +234,7 @@ class FVulkanRendererApp
 			cameraPos.y = sin(glm::radians(cameraYaw)) * cos(glm::radians(cameraPitch)) * cameraArm;
 			cameraPos.z = sin(glm::radians(cameraPitch)) * cameraArm;
 		}
-		void resetTravel()
+		void resetToTravel()
 		{
 			cameraPos = glm::vec3(2.0, 0.0, 0.0);
 			cameraLookat = glm::vec3(0.0, 0.0, 0.0);
@@ -415,9 +417,10 @@ public:
 		stbi_image_free(iconImages[0].pixels);
 		stbi_image_free(iconImages[1].pixels);
 		
-		gloablInput.resetFocus();
+		gloablInput.resetToFocus();
 		gloablInput.resetAnimation();
 		globalConstants.resetConstants();
+
 		glfwSetKeyCallback(window, keyboardCallback);
 		glfwSetMouseButtonCallback(window, mouseButtonCallback);
 		glfwSetCursorPosCallback(window, mousePositionCallback);
@@ -481,11 +484,11 @@ public:
 
 		if (action == GLFW_PRESS && key == GLFW_KEY_F)
 		{
-			input->resetFocus();
+			input->resetToFocus();
 		}
 		if (action == GLFW_PRESS && key == GLFW_KEY_G)
 		{
-			input->resetTravel();
+			input->resetToTravel();
 		}
 		if (action == GLFW_PRESS && key == GLFW_KEY_R)
 		{
@@ -1223,7 +1226,8 @@ protected:
 			VK_FILTER_LINEAR,
 			VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
 			VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-			VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE); // @TODO: 是否应该将 sample filter 改成 VK_FILTER_NEAREST
+			VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+			VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE); // @TODO: 是否应该将 sample filter 改成 VK_FILTER_NEAREST
 
 		//////////////////////////////////////////////////////////
 		// 创建 uniformBuffers 和 uniformBuffersMemory
@@ -1779,7 +1783,7 @@ protected:
 			// Constant depth bias factor (always applied)
 			float depthBiasConstant = 1.25f;
 			// Slope depth bias factor, applied depending on polygon's slope
-			float depthBiasSlope = 1.75f;
+			float depthBiasSlope = 7.5f; // change from 1.75f to fix PCF artifact
 			vkCmdSetDepthBias(
 				commandBuffer,
 				depthBiasConstant,
@@ -2656,7 +2660,8 @@ protected:
 			VK_FILTER_LINEAR, 
 			VK_SAMPLER_ADDRESS_MODE_REPEAT, 
 			VK_SAMPLER_ADDRESS_MODE_REPEAT, 
-			VK_SAMPLER_ADDRESS_MODE_REPEAT, 
+			VK_SAMPLER_ADDRESS_MODE_REPEAT,
+			VK_BORDER_COLOR_INT_OPAQUE_BLACK,
 			mipLevels);
 	}
 
@@ -2901,6 +2906,7 @@ protected:
 			VK_SAMPLER_ADDRESS_MODE_REPEAT,
 			VK_SAMPLER_ADDRESS_MODE_REPEAT,
 			VK_SAMPLER_ADDRESS_MODE_REPEAT,
+			VK_BORDER_COLOR_INT_OPAQUE_BLACK,
 			mipLevels);
 		outMaxMipLevels = mipLevels;
 	}
@@ -3142,6 +3148,7 @@ protected:
 		const VkSamplerAddressMode addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
 		const VkSamplerAddressMode addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
 		const VkSamplerAddressMode addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+		const VkBorderColor borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
 		const uint32_t miplevels = 1)
 	{
 		VkPhysicalDeviceProperties properties{};
@@ -3157,7 +3164,7 @@ protected:
 		// 可在此处关闭各项异性，有些硬件可能不支持
 		samplerInfo.anisotropyEnable = VK_TRUE;
 		samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
-		samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+		samplerInfo.borderColor = borderColor;
 		samplerInfo.unnormalizedCoordinates = VK_FALSE;
 		samplerInfo.compareEnable = VK_FALSE;
 		samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;

@@ -261,7 +261,7 @@ const mat4 BiasMat = mat4(
 
 vec4 ComputeShadowCoord()
 {
-	return ( BiasMat * view.shadowmap_space * view.local_to_world) * vec4(fragPosition, 1.0);	
+	return ( BiasMat * view.shadowmap_space * view.local_to_world) * vec4(fragPosition, 1.0);
 }
 
 
@@ -369,7 +369,7 @@ void main()
 	if (SPEC_CONSTANTS == 0 || SPEC_CONSTANTS == 8)
 	{
 		vec4 ShadowCoord = ComputeShadowCoord();
-		ShadowFactor = ComputePCF(ShadowCoord / ShadowCoord.w, 1);
+		ShadowFactor = ComputePCF(ShadowCoord / ShadowCoord.w, 2);
 	}
 
 	vec3 FinalColor = DirectLighting + IndirectLighting * 0.3 + ReflectionColor;
