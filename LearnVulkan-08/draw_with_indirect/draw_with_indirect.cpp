@@ -35,10 +35,19 @@
 const uint32_t VIEWPORT_WIDTH = 1080;
 const uint32_t VIEWPORT_HEIGHT = 720;
 #define SHADOWMAP_DIM 1024
-
+#define VERTEX_BUFFER_BIND_ID 0
+#define INSTANCE_BUFFER_BIND_ID 1
+#define INSTANCE_COUNT 16
 
 /** 同时渲染多帧的最大帧数*/
+
 const int MAX_FRAMES_IN_FLIGHT = 2;
+
+/** 每个Instance 的数据块*/
+struct FInstanceData {
+    glm::vec3 instPosition;
+    uint32_t instTextureIndex;
+};
 
 struct FVertex {
 	glm::vec3 position;
@@ -46,34 +55,35 @@ struct FVertex {
 	glm::vec3 color;
 	glm::vec2 texCoord;
 
+    // 顶点描述
 	static VkVertexInputBindingDescription getBindingDescription() {
 		VkVertexInputBindingDescription bindingDescription{};
-		bindingDescription.binding = 0;
+		bindingDescription.binding = VERTEX_BUFFER_BIND_ID;
 		bindingDescription.stride = sizeof(FVertex);
 		bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
 		return bindingDescription;
 	}
-
-	static std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions() {
+    
+    static std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions() {
 		std::array<VkVertexInputAttributeDescription, 4> attributeDescriptions{};
 
-		attributeDescriptions[0].binding = 0;
+		attributeDescriptions[0].binding = VERTEX_BUFFER_BIND_ID;
 		attributeDescriptions[0].location = 0;
 		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
 		attributeDescriptions[0].offset = offsetof(FVertex, position);
 
-		attributeDescriptions[1].binding = 0;
+		attributeDescriptions[1].binding = VERTEX_BUFFER_BIND_ID;
 		attributeDescriptions[1].location = 1;
 		attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
 		attributeDescriptions[1].offset = offsetof(FVertex, normal);
 
-		attributeDescriptions[2].binding = 0;
+		attributeDescriptions[2].binding = VERTEX_BUFFER_BIND_ID;
 		attributeDescriptions[2].location = 2;
 		attributeDescriptions[2].format = VK_FORMAT_R32G32B32_SFLOAT;
 		attributeDescriptions[2].offset = offsetof(FVertex, color);
 
-		attributeDescriptions[3].binding = 0;
+		attributeDescriptions[3].binding = VERTEX_BUFFER_BIND_ID;
 		attributeDescriptions[3].location = 3;
 		attributeDescriptions[3].format = VK_FORMAT_R32G32_SFLOAT;
 		attributeDescriptions[3].offset = offsetof(FVertex, texCoord);
@@ -81,7 +91,58 @@ struct FVertex {
 		return attributeDescriptions;
 	}
 
-	bool operator==(const FVertex& other) const {
+    // 顶点描述，带Instance
+    static std::array<VkVertexInputBindingDescription, 2> getInstanceBindingDescriptions() {
+        VkVertexInputBindingDescription bindingDescription0{};
+        bindingDescription0.binding = VERTEX_BUFFER_BIND_ID;
+        bindingDescription0.stride = sizeof(FVertex);
+        bindingDescription0.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+        VkVertexInputBindingDescription bindingDescription1{};
+        bindingDescription1.binding = INSTANCE_BUFFER_BIND_ID;
+        bindingDescription1.stride = sizeof(FInstanceData);
+        bindingDescription1.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
+
+        return {bindingDescription0, bindingDescription1};
+    }
+
+    static std::array<VkVertexInputAttributeDescription, 4> getInstanceAttributeDescriptions() {
+        std::array<VkVertexInputAttributeDescription, 4> attributeDescriptions{};
+
+        attributeDescriptions[0].binding = VERTEX_BUFFER_BIND_ID;
+        attributeDescriptions[0].location = 0;
+        attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+        attributeDescriptions[0].offset = offsetof(FVertex, position);
+
+        attributeDescriptions[1].binding = VERTEX_BUFFER_BIND_ID;
+        attributeDescriptions[1].location = 1;
+        attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+        attributeDescriptions[1].offset = offsetof(FVertex, normal);
+
+        attributeDescriptions[2].binding = VERTEX_BUFFER_BIND_ID;
+        attributeDescriptions[2].location = 2;
+        attributeDescriptions[2].format = VK_FORMAT_R32G32B32_SFLOAT;
+        attributeDescriptions[2].offset = offsetof(FVertex, color);
+
+        attributeDescriptions[3].binding = VERTEX_BUFFER_BIND_ID;
+        attributeDescriptions[3].location = 3;
+        attributeDescriptions[3].format = VK_FORMAT_R32G32_SFLOAT;
+        attributeDescriptions[3].offset = offsetof(FVertex, texCoord);
+
+        attributeDescriptions[4].binding = INSTANCE_BUFFER_BIND_ID;
+        attributeDescriptions[4].location = 4;
+        attributeDescriptions[4].format = VK_FORMAT_R32G32B32_SFLOAT;
+        attributeDescriptions[4].offset = offsetof(FInstanceData, instPosition);
+
+        attributeDescriptions[5].binding = INSTANCE_BUFFER_BIND_ID;
+        attributeDescriptions[5].location = 5;
+        attributeDescriptions[5].format = VK_FORMAT_R32_UINT;
+        attributeDescriptions[5].offset = offsetof(FInstanceData, instTextureIndex);
+
+        return attributeDescriptions;
+    }
+
+    bool operator==(const FVertex& other) const {
 		return position == other.position && normal == other.normal && color == other.color && texCoord == other.texCoord;
 	}
 };
@@ -259,6 +320,42 @@ class FVulkanRendererApp
 		}
 	} gloablInput;
 
+    /** 全局常量*/
+    struct FGlobalConstants {
+        float time;
+        float metallic;
+        float roughness;
+        uint32_t specConstants;
+        uint32_t specConstantsCount;                // 特殊常数，用于优化着色器变体
+
+        void resetConstants()
+        {
+            time = 0.0f;
+            metallic = 0.0f;
+            roughness = 1.0;
+            specConstants = 0;
+            specConstantsCount = 9;
+        }
+    } globalConstants;
+
+    /** 构建 RenderObject 需要的 Vulkan 资源*/
+    struct FRenderObject {
+        std::vector<FVertex> vertices;                       // 顶点
+        std::vector<uint32_t> indices;                       // 点序
+        VkBuffer vertexBuffer;                               // 顶点缓存
+        VkDeviceMemory vertexBufferMemory;                   // 顶点缓存内存
+        VkBuffer indexBuffer;                                // 点序缓存
+        VkDeviceMemory indexBufferMemory;                    // 点序缓存内存
+
+        std::vector<VkImage> textureImages;                  // 贴图
+        std::vector<VkDeviceMemory> textureImageMemorys;     // 贴图内存
+        std::vector<VkImageView> textureImageViews;          // 贴图视口
+        std::vector<VkSampler> textureSamplers;              // 贴图采样器
+
+        VkDescriptorPool descriptorPool;                     // 描述符池
+        std::vector<VkDescriptorSet> descriptorSets;         // 描述符集合
+    };
+
 	/** 构建 ShadowmapPass 需要的 Vulkan 资源*/
 	struct FShadowmapPass {
 		float zNear, zFar;
@@ -293,23 +390,14 @@ class FVulkanRendererApp
 		std::vector<VkPipeline> pipelines;
 	} backgroundPass;
 
-	/** 构建 RenderObject 需要的 Vulkan 资源*/
-	struct FRenderObject {
-		std::vector<FVertex> vertices;						// 顶点
-		std::vector<uint32_t> indices;						// 点序
-		VkBuffer vertexBuffer;								// 顶点缓存
-		VkDeviceMemory vertexBufferMemory;					// 顶点缓存内存
-		VkBuffer indexBuffer;								// 点序缓存
-		VkDeviceMemory indexBufferMemory;					// 点序缓存内存
-
-		std::vector<VkImage> textureImages;					// 贴图
-		std::vector<VkDeviceMemory> textureImageMemorys;	// 贴图内存
-		std::vector<VkImageView> textureImageViews;			// 贴图视口
-		std::vector<VkSampler> textureSamplers;				// 贴图采样器
-
-		VkDescriptorPool descriptorPool;					// 描述符池
-		std::vector<VkDescriptorSet> descriptorSets;		// 描述符集合
-	};
+    struct FInstancedPass {
+        // 包含 the instanced data
+        VkBuffer instancedBuffer;
+        // 包含 the indirect drawing commands
+        VkBuffer indirectCommandsBuffer;
+        // 存储 indirect draw commands，包含 index offsets 和 instance count per object
+        std::vector<VkDrawIndexedIndirectCommand> indirectCommands;
+    } instancedPass;
 
 	/** 构建 BaseScenePass 需要的 Vulkan 资源*/
 	struct FBaseScenePass {
@@ -318,24 +406,6 @@ class FVulkanRendererApp
 		VkPipelineLayout pipelineLayout;            // 渲染管线布局
 		std::vector<VkPipeline> pipelines;			// 渲染管线
 	} baseScenePass;
-
-	/** 全局常量*/
-	struct FGlobalConstants {
-		float time;
-		float metallic;
-		float roughness;
-		uint32_t specConstants;
-		uint32_t specConstantsCount;				// 特殊常数，用于优化着色器变体
-
-		void resetConstants()
-		{
-			time = 0.0f;
-			metallic = 0.0f;
-			roughness = 1.0;
-			specConstants = 0;
-			specConstantsCount = 9;
-		}
-	} globalConstants;
 
 	GLFWwindow* window;										// Window 渲染桌面
 
@@ -406,7 +476,7 @@ public:
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE); // 打开窗口的Resize功能
 
-		window = glfwCreateWindow(VIEWPORT_WIDTH, VIEWPORT_HEIGHT, "LearnVulkan-07: Draw with Shadow", nullptr /* glfwGetPrimaryMonitor() 全屏模式*/, nullptr);
+		window = glfwCreateWindow(VIEWPORT_WIDTH, VIEWPORT_HEIGHT, "LearnVulkan-08: Draw with Indirect", nullptr /* glfwGetPrimaryMonitor() 全屏模式*/, nullptr);
 		glfwSetWindowUserPointer(window, this);
 		glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 		GLFWimage iconImages[2];
@@ -1431,8 +1501,8 @@ protected:
 		dynamicStateCI.dynamicStateCount = static_cast<uint32_t>(dynamicStateEnables.size());
 		dynamicStateCI.pDynamicStates = dynamicStateEnables.data();
 		
-		auto vertShaderCode = readShaderSource("Resources/Shaders/draw_with_shadow_sm_vert.spv");
-		auto fragShaderCode = readShaderSource("Resources/Shaders/draw_with_shadow_sm_frag.spv");
+		auto vertShaderCode = readShaderSource("Resources/Shaders/draw_with_indirect_sm_vert.spv");
+		auto fragShaderCode = readShaderSource("Resources/Shaders/draw_with_indirect_sm_frag.spv");
 		VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
 		VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
 		VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
@@ -1565,6 +1635,27 @@ protected:
 		}
 	}
 
+    void createInstancedPass()
+    {
+        instancedPass.indirectCommands.clear();
+
+        for (uint32_t i = 0; i < 10, i++) {
+            VkDrawIndexedIndirectCommand indirectCmd{};
+            indirectCmd.instanceCount = 1;
+            indirectCmd.firstInstance = 0;
+            indirectCmd.firstIndex = 0;
+            indirectCmd.indexCount = 6;
+            instancedPass.indirectCommands.push_back(indirectCmd);
+        }
+        indirectDrawCount = static_cast<uint32_t>(instancedPass.indirectCommands.size());
+        uint32_t objectCount = 0;
+        for (auto indirectCmd : indirectCommands)
+        {
+            objectCount += indirectCmd.instanceCount;
+        }
+
+    }
+    
 	void createBaseScenePass()
 	{
 		auto createRenderResource = [this](FRenderObject& outObject, const std::string& objfile, const std::vector<std::string>& pngfiles) -> void
@@ -1600,8 +1691,8 @@ protected:
 			baseScenePass.pipelineLayout, 
 			baseScenePass.pipelines, specConstantsCount,
 			baseScenePass.descriptorSetLayout, 
-			"Resources/Shaders/draw_with_shadow_base_vert.spv", 
-			"Resources/Shaders/draw_with_shadow_base_frag.spv");
+			"Resources/Shaders/draw_with_indirect_base_vert.spv", 
+			"Resources/Shaders/draw_with_indirect_base_frag.spv");
 
 		{
 			std::string asset_set_dir = "Resources/AssetSets";
@@ -1706,8 +1797,8 @@ protected:
 			backgroundPass.pipelineLayout,
 			backgroundPass.pipelines, 1,
 			backgroundPass.descriptorSetLayout, 
-			"Resources/Shaders/draw_with_shadow_bg_vert.spv", 
-			"Resources/Shaders/draw_with_shadow_bg_frag.spv",
+			"Resources/Shaders/draw_with_indirect_bg_vert.spv", 
+			"Resources/Shaders/draw_with_indirect_bg_frag.spv",
 			VK_FALSE, VK_CULL_MODE_NONE);
 	}
 
@@ -2439,7 +2530,7 @@ protected:
 		const VkDescriptorSetLayout& inDescriptorSetLayout,
 		const std::string& vert_filename,
 		const std::string& frag_filename,
-		const VkBool32 bDepthTest = VK_TRUE, 
+		const VkBool32 bDepthTest = VK_TRUE,
 		const VkCullModeFlags CullMode = VK_CULL_MODE_BACK_BIT)
 	{
 		auto vertShaderCode = readShaderSource(vert_filename);
@@ -3380,6 +3471,23 @@ protected:
 			vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 		}
 	}
+
+    void xkFakeDrawIndirect(VkCommandBuffer commandBuffer,void* buffer,VkDeviceSize offset, uint32_t drawCount,uint32_t stride)
+    {
+        char* memory = (char*)buffer + offset;
+
+        for(int i = 0; i < drawCount; i++)
+        {
+            VkDrawIndexedIndirectCommand* command = (VkDrawIndexedIndirectCommand*)(memory + (i * stride));
+
+            vkCmdDrawIndexed(commandBuffer,
+            command->indexCount,
+            command->instanceCount,
+            command->firstIndex,
+            command->vertexOffset,
+            command->firstInstance);
+        }
+    }
 
 private:
 	/** 将编译的着色器二进制SPV文件，读入内存Buffer中*/
