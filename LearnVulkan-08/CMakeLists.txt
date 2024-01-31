@@ -82,10 +82,12 @@ function(buildProject PROJECT_NAME)
 	COMMAND ${CMAKE_COMMAND} -E make_directory ${SHADERS_DEST}
     COMMAND glslc ARGS -g ${SHADERS_SRC}/${PROJECT_NAME}_base.frag -o ${SHADERS_DEST}/${PROJECT_NAME}_base_frag.spv
     COMMAND glslc ARGS -g ${SHADERS_SRC}/${PROJECT_NAME}_base.vert -o ${SHADERS_DEST}/${PROJECT_NAME}_base_vert.spv
+    COMMAND glslc ARGS -g ${SHADERS_SRC}/${PROJECT_NAME}_base_instanced.vert -o ${SHADERS_DEST}/${PROJECT_NAME}_base_instanced_vert.spv
     COMMAND glslc ARGS -g ${SHADERS_SRC}/${PROJECT_NAME}_bg.frag -o ${SHADERS_DEST}/${PROJECT_NAME}_bg_frag.spv
     COMMAND glslc ARGS -g ${SHADERS_SRC}/${PROJECT_NAME}_bg.vert -o ${SHADERS_DEST}/${PROJECT_NAME}_bg_vert.spv
     COMMAND glslc ARGS -g ${SHADERS_SRC}/${PROJECT_NAME}_sm.frag -o ${SHADERS_DEST}/${PROJECT_NAME}_sm_frag.spv
     COMMAND glslc ARGS -g ${SHADERS_SRC}/${PROJECT_NAME}_sm.vert -o ${SHADERS_DEST}/${PROJECT_NAME}_sm_vert.spv
+    COMMAND glslc ARGS -g ${SHADERS_SRC}/${PROJECT_NAME}_sm_instanced.vert -o ${SHADERS_DEST}/${PROJECT_NAME}_sm_instanced_vert.spv
 	WORKING_DIRECTORY ${SHADERS_SRC}
     DEPENDS ${SHADERS_SRC} ${SHADER_SOURCES}
     COMMENT "Compiling Shaders Success!"

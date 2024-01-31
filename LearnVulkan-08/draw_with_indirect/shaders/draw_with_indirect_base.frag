@@ -10,6 +10,8 @@ layout( push_constant ) uniform constants
 	float time;
 	float roughness;
 	float metallic;
+	uint specConstants;
+	uint specConstantsCount;
 } global;
 
 struct light
@@ -305,6 +307,8 @@ float ComputePCF(vec4 sc /*shadow croodinate*/, int r /*filtering range*/)
 
 void main()
 {
+	vec3 VertexColor = fragColor;
+
 	vec3 BaseColor = texture(sampler1, fragTexCoord).rgb;
 	float Metallic = saturate(texture(sampler2, fragTexCoord).r);
 	float Roughness = saturate(texture(sampler3, fragTexCoord).r);
@@ -361,12 +365,12 @@ void main()
 	vec3 ReflectionColor = Reflection_L * Reflection_V * ReflectionBRDF;
 
 	float ShadowFactor = 1.0;
-	if (SPEC_CONSTANTS == 7)
+	if (SPEC_CONSTANTS == 8)
 	{
 		vec4 ShadowCoord = ComputeShadowCoord();
 		ShadowFactor = ShadowDepthProject(ShadowCoord / ShadowCoord.w, vec2(0.0));
 	}
-	if (SPEC_CONSTANTS == 0 || SPEC_CONSTANTS == 8)
+	if (SPEC_CONSTANTS == 0 || SPEC_CONSTANTS == 9)
 	{
 		vec4 ShadowCoord = ComputeShadowCoord();
 		ShadowFactor = ComputePCF(ShadowCoord / ShadowCoord.w, 2);
@@ -390,9 +394,11 @@ void main()
 		case 5:
 			outColor = vec4(vec3(AmbientOcclution), 1.0); break;
 		case 6:
-			outColor = vec4(vec3(FinalColor), 1.0); break;
+			outColor = vec4(vec3(VertexColor), 1.0); break;
 		case 7:
+			outColor = vec4(vec3(FinalColor), 1.0); break;
 		case 8:
+		case 9:
 			outColor = vec4(vec3(ShadowFactor), 1.0); break;
 		default:
 			outColor = vec4(FinalColor * ShadowFactor, 1.0); break;

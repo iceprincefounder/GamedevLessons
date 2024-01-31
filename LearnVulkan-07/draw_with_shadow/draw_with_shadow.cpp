@@ -1,4 +1,4 @@
-// Copyright LearnVulkan-06: Draw with PBR, @xukai. All Rights Reserved.
+﻿// Copyright LearnVulkan-06: Draw with PBR, @xukai. All Rights Reserved.
 #define GLFW_INCLUDE_VULKAN
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE // 深度缓存区，OpenGL默认是（-1.0， 1.0）Vulakn为（0.0， 1.0）
