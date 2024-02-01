@@ -1,4 +1,4 @@
-﻿// Copyright LearnVulkan-02: Draw the Triangle, @xukai. All Rights Reserved.
+// Copyright LearnVulkan-02: Draw the Triangle, @xukai. All Rights Reserved.
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
@@ -18,7 +18,7 @@ const uint32_t WIDTH = 1080;
 const uint32_t HEIGHT = 720;
 
 const std::vector<const char*> validationLayers = { "VK_LAYER_KHRONOS_validation" };
-const std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+const std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
 #ifdef NDEBUG
 const bool enableValidationLayers = false;  // Build Configuration: Release
@@ -229,6 +229,7 @@ protected:
 
 		VkInstanceCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+        createInfo.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
 		createInfo.pApplicationInfo = &appInfo;
 
         /** Get Required Extensions*/
@@ -242,6 +243,8 @@ protected:
         {
             extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
         }
+        // 修复Mac上"vkCreateInstance: Found no drivers!"的问题
+        extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
 		createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
 		createInfo.ppEnabledExtensionNames = extensions.data();
 
