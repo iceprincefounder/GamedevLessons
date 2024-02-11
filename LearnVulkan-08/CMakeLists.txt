@@ -57,8 +57,8 @@ function(buildProject PROJECT_NAME)
 	set (RESOURCES_SRC ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}/resources)
     set (RESOURCES_DEST ${CURRENT_WORKING_DIR}/Resources)
     set (SHADERS_DEST ${CURRENT_WORKING_DIR}/Resources/Shaders)
-    set (ICONS_DEST ${CURRENT_WORKING_DIR}/Resources/AppIcons)
-    set (ASSETSETS_DEST ${CURRENT_WORKING_DIR}/Resources/AssetSets)
+    set (ICONS_DEST ${CURRENT_WORKING_DIR}/Resources/Appicons)
+    set (ASSETSETS_DEST ${CURRENT_WORKING_DIR}/Resources/Profabs)
 
 	if(EXISTS ${EXAMPLE_FOLDER}/main.cpp)
 		SET(MAIN_CPP ${EXAMPLE_FOLDER}/main.cpp)
@@ -69,6 +69,8 @@ function(buildProject PROJECT_NAME)
     # Set application icon
     AddIconToBinary(MAIN_CPP ICONS ${ICONS_SRC}/vulkan_renderer.ico ${ICONS_SRC}/vulkan_renderer.icns)
 	if(WIN32)
+        add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
+        add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 		add_executable(${PROJECT_NAME} WIN32 ${MAIN_CPP})
 		target_link_libraries(${PROJECT_NAME} ${Vulkan_LIBRARY} ${WINLIBS})
 	else(WIN32)
@@ -83,11 +85,13 @@ function(buildProject PROJECT_NAME)
     COMMAND glslc ARGS -g ${SHADERS_SRC}/${PROJECT_NAME}_base.frag -o ${SHADERS_DEST}/${PROJECT_NAME}_base_frag.spv
     COMMAND glslc ARGS -g ${SHADERS_SRC}/${PROJECT_NAME}_base.vert -o ${SHADERS_DEST}/${PROJECT_NAME}_base_vert.spv
     COMMAND glslc ARGS -g ${SHADERS_SRC}/${PROJECT_NAME}_base_instanced.vert -o ${SHADERS_DEST}/${PROJECT_NAME}_base_instanced_vert.spv
-    COMMAND glslc ARGS -g ${SHADERS_SRC}/${PROJECT_NAME}_bg.frag -o ${SHADERS_DEST}/${PROJECT_NAME}_bg_frag.spv
-    COMMAND glslc ARGS -g ${SHADERS_SRC}/${PROJECT_NAME}_bg.vert -o ${SHADERS_DEST}/${PROJECT_NAME}_bg_vert.spv
     COMMAND glslc ARGS -g ${SHADERS_SRC}/${PROJECT_NAME}_sm.frag -o ${SHADERS_DEST}/${PROJECT_NAME}_sm_frag.spv
     COMMAND glslc ARGS -g ${SHADERS_SRC}/${PROJECT_NAME}_sm.vert -o ${SHADERS_DEST}/${PROJECT_NAME}_sm_vert.spv
     COMMAND glslc ARGS -g ${SHADERS_SRC}/${PROJECT_NAME}_sm_instanced.vert -o ${SHADERS_DEST}/${PROJECT_NAME}_sm_instanced_vert.spv
+    COMMAND glslc ARGS -g ${SHADERS_SRC}/${PROJECT_NAME}_bg.frag -o ${SHADERS_DEST}/${PROJECT_NAME}_bg_frag.spv
+    COMMAND glslc ARGS -g ${SHADERS_SRC}/${PROJECT_NAME}_bg.vert -o ${SHADERS_DEST}/${PROJECT_NAME}_bg_vert.spv
+    COMMAND glslc ARGS -g ${SHADERS_SRC}/${PROJECT_NAME}_sky.frag -o ${SHADERS_DEST}/${PROJECT_NAME}_sky_frag.spv
+    COMMAND glslc ARGS -g ${SHADERS_SRC}/${PROJECT_NAME}_sky.vert -o ${SHADERS_DEST}/${PROJECT_NAME}_sky_vert.spv
 	WORKING_DIRECTORY ${SHADERS_SRC}
     DEPENDS ${SHADERS_SRC} ${SHADER_SOURCES}
     COMMENT "Compiling Shaders Success!"
@@ -124,7 +128,7 @@ function(buildProjects)
 endfunction(buildProjects)
 
 set(PROJECTS
-	draw_with_indirect
+	draw_with_instance
 )
 
 buildProjects()

@@ -1,4 +1,4 @@
-// Copyright LearnVulkan-06: Draw with PBR, @xukai. All Rights Reserved.
+// Copyright LearnVulkan-07: Draw with Shadow, @xukai. All Rights Reserved.
 #define GLFW_INCLUDE_VULKAN
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE // 深度缓存区，OpenGL默认是（-1.0， 1.0）Vulakn为（0.0， 1.0）
@@ -410,8 +410,8 @@ public:
 		glfwSetWindowUserPointer(window, this);
 		glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 		GLFWimage iconImages[2];
-		iconImages[0].pixels = stbi_load("Resources/AppIcons/vulkan_renderer.png", &iconImages[0].width, &iconImages[0].height, 0, STBI_rgb_alpha);
-		iconImages[1].pixels = stbi_load("Resources/AppIcons/vulkan_renderer_small.png", &iconImages[1].width, &iconImages[1].height, 0, STBI_rgb_alpha);
+		iconImages[0].pixels = stbi_load("Resources/Appicons/vulkan_renderer.png", &iconImages[0].width, &iconImages[0].height, 0, STBI_rgb_alpha);
+		iconImages[1].pixels = stbi_load("Resources/Appicons/vulkan_renderer_small.png", &iconImages[1].width, &iconImages[1].height, 0, STBI_rgb_alpha);
 		glfwSetWindowIcon(window, 2, iconImages);
 		stbi_image_free(iconImages[0].pixels);
 		stbi_image_free(iconImages[1].pixels);
@@ -1591,6 +1591,61 @@ protected:
 			createDescriptorSets(outObject.descriptorSets, outObject.descriptorPool, baseScenePass.descriptorSetLayout, outObject.textureImageViews, outObject.textureSamplers);
 		};
 
+		auto createProfabs = [this, createRenderResource](const std::string& in_asset_name)
+		{
+			std::string asset_set_dir = "Resources/Profabs";
+			for (const auto& folder : std::filesystem::directory_iterator(asset_set_dir))
+			{
+				std::string asset_name = folder.path().filename().generic_string();
+				std::string asset_set = folder.path().generic_string();
+				std::string models_dir = asset_set + std::string("/models/");
+				std::string textures_dir = asset_set + std::string("/textures/");
+				if (in_asset_name == asset_name &&
+					std::filesystem::is_directory(models_dir) && std::filesystem::is_directory(textures_dir))
+				{
+					for (const auto& model : std::filesystem::directory_iterator(models_dir))
+					{
+						std::string model_file = model.path().generic_string();
+						std::string model_file_name = model_file.substr(model_file.find_last_of("/\\") + 1);
+						std::string::size_type const p(model_file_name.find_last_of('.'));
+						std::string model_name = model_file_name.substr(0, p);
+
+						std::string texture_bc = textures_dir + model_name + std::string("_bc.png");
+						if (!std::filesystem::exists(texture_bc)) {
+							texture_bc = std::string("Resources/Textures/default_grey.png");
+						}
+						std::string texture_m = textures_dir + model_name + std::string("_m.png");
+						if (!std::filesystem::exists(texture_m)) {
+							texture_m = std::string("Resources/Textures/default_black.png");
+						}
+						std::string texture_r = textures_dir + model_name + std::string("_r.png");
+						if (!std::filesystem::exists(texture_r)) {
+							texture_r = std::string("Resources/Textures/default_white.png");
+						}
+						std::string texture_n = textures_dir + model_name + std::string("_n.png");
+						if (!std::filesystem::exists(texture_n)) {
+							texture_n = std::string("Resources/Textures/default_normal.png");
+						}
+						std::string texture_ao = textures_dir + model_name + std::string("_ao.png");
+						if (!std::filesystem::exists(texture_ao)) {
+							texture_ao = std::string("Resources/Textures/default_white.png");
+						}
+
+						FRenderObject asset;
+						std::string asset_obj = model_file;
+						std::vector<std::string> asset_imgs = {
+							texture_bc,
+							texture_m,
+							texture_r,
+							texture_n,
+							texture_ao };
+						createRenderResource(asset, asset_obj, asset_imgs);
+						baseScenePass.renderObjects.push_back(asset);
+					}
+				}
+			}
+		};
+
 		// 创建环境反射纹理资源
 		createCubemapResources();
 
@@ -1600,80 +1655,15 @@ protected:
 		createDescriptorSetLayout(baseScenePass.descriptorSetLayout, sampler_number);
 		uint32_t specConstantsCount = globalConstants.specConstantsCount;
 		baseScenePass.pipelines.resize(specConstantsCount);
-		CreateGraphicsPipelines(
+		createGraphicsPipelines(
 			baseScenePass.pipelineLayout, 
 			baseScenePass.pipelines, specConstantsCount,
 			baseScenePass.descriptorSetLayout, 
 			"Resources/Shaders/draw_with_shadow_base_vert.spv", 
 			"Resources/Shaders/draw_with_shadow_base_frag.spv");
 
-		{
-			std::string asset_set_dir = "Resources/AssetSets";
-			for (const auto & folder : std::filesystem::directory_iterator(asset_set_dir))
-			{
-				std::string asset_set = folder.path().generic_string();
-				std::string models_dir = asset_set + std::string("/models/");
-				std::string textures_dir = asset_set + std::string("/textures/");
-				if (!std::filesystem::is_directory(models_dir) ||
-					!std::filesystem::is_directory(textures_dir))
-				{
-					continue;
-				}
-				for (const auto & model : std::filesystem::directory_iterator(models_dir))
-				{
-					std::string model_file = model.path().generic_string();
-					std::string model_file_name = model_file.substr(model_file.find_last_of("/\\") + 1);
-					std::string::size_type const p(model_file_name.find_last_of('.'));
-					std::string model_name = model_file_name.substr(0, p);
-					
-					std::string texture_bc = textures_dir + model_name + std::string("_bc.png");
-					if (!std::filesystem::exists(texture_bc)) {
-						texture_bc = std::string("Resources/Textures/default_grey.png");
-					}
-					std::string texture_m = textures_dir + model_name + std::string("_m.png");
-					if (!std::filesystem::exists(texture_m)) {
-						texture_m = std::string("Resources/Textures/default_black.png");
-					}
-					std::string texture_r = textures_dir + model_name + std::string("_r.png");
-					if (!std::filesystem::exists(texture_r)) {
-						texture_r = std::string("Resources/Textures/default_white.png");
-					}
-					std::string texture_n = textures_dir + model_name + std::string("_n.png");
-					if (!std::filesystem::exists(texture_n)) {
-						texture_n = std::string("Resources/Textures/default_normal.png");
-					}
-					std::string texture_ao = textures_dir + model_name + std::string("_ao.png");
-					if (!std::filesystem::exists(texture_ao)) {
-						texture_ao = std::string("Resources/Textures/default_white.png");
-					}
-					
-					FRenderObject asset;
-					std::string asset_obj = model_file;
-					std::vector<std::string> asset_imgs = {
-						texture_bc,
-						texture_m,
-						texture_r,
-						texture_n,
-						texture_ao};
-					createRenderResource(asset, asset_obj, asset_imgs);
-					baseScenePass.renderObjects.push_back(asset);
-				}
-			}
-		}
-		//assert(house_element_num == 0);
+		createProfabs("chinese_house");
 		
-		if (baseScenePass.renderObjects.size() == 0) {
-			FRenderObject sphere;
-			std::string sphere_obj = "Resources/Models/sphere.obj";
-			std::vector<std::string> sphere_imgs = {
-				"Resources/Textures/default_grey.png",
-				"Resources/Textures/default_black.png",
-				"Resources/Textures/default_white.png",
-				"Resources/Textures/default_normal.png",
-				"Resources/Textures/default_white.png" };
-			createRenderResource(sphere, sphere_obj, sphere_imgs);
-			baseScenePass.renderObjects.push_back(sphere);
-		}
 		FRenderObject stage;
 		std::string stage_obj = "Resources/Models/stage.obj";
 		std::vector<std::string> stage_imgs = {
@@ -1706,7 +1696,7 @@ protected:
 			backgroundPass.imageView,
 			backgroundPass.sampler);
 		backgroundPass.pipelines.resize(1);
-		CreateGraphicsPipelines(
+		createGraphicsPipelines(
 			backgroundPass.pipelineLayout,
 			backgroundPass.pipelines, 1,
 			backgroundPass.descriptorSetLayout, 
@@ -2436,7 +2426,7 @@ protected:
 	}
 
 	/**创建图形渲染管线*/
-	void CreateGraphicsPipelines(
+	void createGraphicsPipelines(
 		VkPipelineLayout& outPipelineLayout,
 		std::vector<VkPipeline>& outPipelines,
 		const uint32_t specConstantsCount,
