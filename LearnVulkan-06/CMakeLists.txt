@@ -69,6 +69,8 @@ function(buildProject PROJECT_NAME)
     # Set application icon
     AddIconToBinary(MAIN_CPP ICONS ${ICONS_DIR}/vulkan_renderer.ico ${ICONS_DIR}/vulkan_renderer.icns)
 	if(WIN32)
+        add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
+        add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 		add_executable(${PROJECT_NAME} WIN32 ${MAIN_CPP})
 		target_link_libraries(${PROJECT_NAME} ${Vulkan_LIBRARY} ${WINLIBS})
 	else(WIN32)
