@@ -22,6 +22,7 @@
 #include <stdexcept>
 #include <filesystem>
 #include <fstream>
+#include <stdio.h>
 #include <regex>
 #include <limits>
 #include <optional>
@@ -362,8 +363,8 @@ class FVulkanRendererApp
 		VkDeviceMemory IndexBufferMemory;                    // 点序缓存内存
 
 		// only init with instanced mesh
-		VkBuffer InstancedBuffer;                            // 点序缓存
-		VkDeviceMemory InstancedBufferMemory;                // 点序缓存内存
+		VkBuffer InstancedBuffer;                            // Instanced buffer
+		VkDeviceMemory InstancedBufferMemory;                // Instanced buffer memory
 	};
 
 	typedef FMesh FInstancedMesh;
@@ -3241,7 +3242,8 @@ protected:
 		const std::string& filename, bool sRGB = true)
 	{
 		int texWidth, texHeight, texChannels, mipLevels;
-		stbi_uc* pixels = LoadTextureAsset(filename, texWidth, texHeight, texChannels, mipLevels);
+        std::vector<uint8_t> pixels;
+        LoadTextureAsset(filename, pixels, texWidth, texHeight, texChannels, mipLevels);
 
 		VkDeviceSize imageSize = texWidth * texHeight * 4;
 
@@ -3249,14 +3251,11 @@ protected:
 		VkDeviceMemory stagingBufferMemory;
 		CreateBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
 
-		void* data;
+        void* data;
 		vkMapMemory(Device, stagingBufferMemory, 0, imageSize, 0, &data);
-		memcpy(data, pixels, static_cast<size_t>(imageSize));
+		memcpy(data, pixels.data(), static_cast<size_t>(imageSize));
 		vkUnmapMemory(Device, stagingBufferMemory);
-
-		// 清理pixels数据结构
-		stbi_image_free(pixels);
-
+        
 		VkFormat format = sRGB ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM;
 		// VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT 告诉Vulkan这张贴图即要被读也要被写
 		CreateImage(
@@ -3297,9 +3296,10 @@ protected:
 	{
 		// https://matheowis.github.io/HDRI-to-CubeMap/
 		int texWidth, texHeight, texChannels, mipLevels;
-		stbi_uc* pixels[6];
+        std::vector<std::vector<uint8_t>> pixels_array;
+        pixels_array.resize(6);
 		for (int i = 0; i < 6; ++i) {
-			pixels[i] = LoadTextureAsset(filenames[i], texWidth, texHeight, texChannels, mipLevels);
+			LoadTextureAsset(filenames[i], pixels_array[i], texWidth, texHeight, texChannels, mipLevels);
 		}
 		VkDeviceSize imageSize = texWidth * texHeight * 4;
 
@@ -3310,10 +3310,8 @@ protected:
 		for (int i = 0; i < 6; ++i) {
 			void* writeLocation;
 			vkMapMemory(Device, stagingBufferMemory, imageSize * i, imageSize, 0, &writeLocation);
-			memcpy(writeLocation, pixels[i], imageSize);
+			memcpy(writeLocation, pixels_array[i].data(), imageSize);
 			vkUnmapMemory(Device, stagingBufferMemory);
-			// 清理pixels数据结构
-			stbi_image_free(pixels[i]);
 		}
 
 		// CreateImage
@@ -4184,32 +4182,65 @@ private:
 
 		return buffer;
 	}
-
+    
 	/** 从图片文件中读取贴像素信息*/
-	static stbi_uc* LoadTextureAsset(const std::string& filename, int& texWidth, int& texHeight, int& texChannels, int& mipLevels)
+	static void LoadTextureAsset(const std::string& filename, std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight, int& outChannels, int& outMipLevels)
 	{
-		stbi_hdr_to_ldr_scale(2.2f);
-		stbi_uc* pixels = stbi_load(filename.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-		stbi_hdr_to_ldr_scale(1.0f);
-		mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
-		if (!pixels) {
-			throw std::runtime_error("failed to load texture image!");
-			assert(true);
-		}
-		return pixels;
-	}
-
-	/** 从HDR图片文件中读取贴像素信息*/
-	static float* LoadTextureHDRAsset(const std::string& filename, int& texWidth, int& texHeight, int& texChannels, int& mipLevels)
-	{
-		float* pixels = stbi_loadf(filename.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-		mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
-		if (!pixels) {
-			throw std::runtime_error("failed to load texture image!");
-			assert(true);
-		}
-		return pixels;
-	}
+        // TODO: cache raw data.
+        //        struct FTextureCache{
+        //            FTextureCache()
+        //            {
+        //            };
+        //
+        //            ~FTextureCache()
+        //            {
+        //            };
+        //            uint8_t* Pixels;
+        //            int Width, Height, Channels, MipLevels;
+        //        } Cache;
+        //
+        //        auto findCacheFile = [filename]()
+        //        {
+        //            std::string outfilename = filename;
+        //            return outfilename.replace(filename.find(".png"), sizeof(".png") - 1, ".cache0");
+        //        };
+        //
+        //        std::string cachefile = findCacheFile();
+        //        if (std::filesystem::exists(cachefile))
+        //        {
+        //            std::ifstream iout(cachefile, std::ios::in | std::ios::binary);
+        //            iout.read((char*)&Cache, sizeof(Cache));
+        //            iout.close();
+        //
+        //            outMipLevels = Cache.MipLevels;
+        //            outChannels = Cache.Channels;
+        //            outHeight = Cache.Height;
+        //            outWidth = Cache.Width;
+        //            outPixels = Cache.Pixels;
+        //            Cache.Pixels = outPixels;
+        //            Cache.Width = outWidth;
+        //            Cache.Height = outHeight;
+        //            Cache.Channels = outChannels;
+        //            Cache.MipLevels = outMipLevels;
+        //
+        //            std::ofstream fout(cachefile, std::ios::out | std::ios::binary);
+        //            fout.write((char*)&Cache, sizeof(Cache));
+        //            fout.close();
+        //
+        //        }
+        stbi_hdr_to_ldr_scale(2.2f);
+        stbi_uc* pixels = stbi_load(filename.c_str(), &outWidth, &outHeight, &outChannels, STBI_rgb_alpha);
+        stbi_hdr_to_ldr_scale(1.0f);
+        outMipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(outWidth, outHeight)))) + 1;
+        if (!pixels) {
+            throw std::runtime_error("failed to load texture image!");
+            assert(true);
+        }
+        outPixels.resize(outWidth * outHeight * 4);
+        std::memcpy(outPixels.data(), pixels, static_cast<size_t>(outWidth * outHeight * 4));
+        // clear pixels data.
+        stbi_image_free(pixels);
+    }
 
 	/** 从模型文件中读取贴顶点信息*/
 	static void LoadModelAsset(const std::string& filename, std::vector<FVertex>& Vertices, std::vector<uint32_t>& Indices)
