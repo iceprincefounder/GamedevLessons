@@ -99,7 +99,7 @@ struct FVertex {
 	}
 
 	// 顶点描述，带Instance
-	static std::array<VkVertexInputBindingDescription, 2> GetInstancedBindingDescriptions() {
+	static std::array<VkVertexInputBindingDescription, 2> GetBindingInstancedDescriptions() {
 		VkVertexInputBindingDescription bindingDescription0{};
 		bindingDescription0.binding = VERTEX_BUFFER_BIND_ID;
 		bindingDescription0.stride = sizeof(FVertex);
@@ -113,7 +113,7 @@ struct FVertex {
 		return { bindingDescription0, bindingDescription1 };
 	}
 
-	static std::array<VkVertexInputAttributeDescription, 8> GetInstancedAttributeDescriptions() {
+	static std::array<VkVertexInputAttributeDescription, 8> GetAttributeInstancedDescriptions() {
 		std::array<VkVertexInputAttributeDescription, 8> attributeDescriptions{};
 
 		attributeDescriptions[0].binding = VERTEX_BUFFER_BIND_ID;
@@ -1701,8 +1701,8 @@ protected:
 		vertInstancedShaderStageCI.stage = VK_SHADER_STAGE_VERTEX_BIT;
 		vertInstancedShaderStageCI.module = vertInstancedShaderModule;
 		vertInstancedShaderStageCI.pName = "main";
-		auto bindingInstancedDescriptions = FVertex::GetInstancedBindingDescriptions();
-		auto attributeInstancedDescriptions = FVertex::GetInstancedAttributeDescriptions();
+		auto bindingInstancedDescriptions = FVertex::GetBindingInstancedDescriptions();
+		auto attributeInstancedDescriptions = FVertex::GetAttributeInstancedDescriptions();
 		vertexInputCI.vertexBindingDescriptionCount = static_cast<uint32_t>(bindingInstancedDescriptions.size());
 		vertexInputCI.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeInstancedDescriptions.size());
 		vertexInputCI.pVertexBindingDescriptions = bindingInstancedDescriptions.data();
@@ -3096,6 +3096,12 @@ protected:
 
 		VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageCI, fragShaderStageCI };
 
+		// 顶点缓存绑定的描述，定义了顶点都需要绑定什么数据，比如第一个位置绑定Position，第二个位置绑定Color，第三个位置绑定UV等
+		auto bindingDescription = FVertex::GetBindingDescription();
+		auto attributeDescriptions = FVertex::GetAttributeDescriptions();
+		auto bindingInstancedDescriptions = FVertex::GetBindingInstancedDescriptions();
+		auto attributeInstancedDescriptions = FVertex::GetAttributeInstancedDescriptions();
+
 		// 渲染管线VertexBuffer输入
 		VkPipelineVertexInputStateCreateInfo vertexInputCI{};
 		if (!bDepthTest && !bCullBack) // 如果不做深度检测并且不做背面剔除，那么认为是渲染背景，不需要绑定VBO
@@ -3106,21 +3112,14 @@ protected:
 		}
 		else if (bInstanced)
 		{
-			auto bindingDescriptions = FVertex::GetInstancedBindingDescriptions();
-			auto attributeDescriptions = FVertex::GetInstancedAttributeDescriptions();
-
 			vertexInputCI.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-			vertexInputCI.vertexBindingDescriptionCount = static_cast<uint32_t>(bindingDescriptions.size());
-			vertexInputCI.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
-			vertexInputCI.pVertexBindingDescriptions = bindingDescriptions.data();
-			vertexInputCI.pVertexAttributeDescriptions = attributeDescriptions.data();
+			vertexInputCI.vertexBindingDescriptionCount = static_cast<uint32_t>(bindingInstancedDescriptions.size());
+			vertexInputCI.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeInstancedDescriptions.size());
+			vertexInputCI.pVertexBindingDescriptions = bindingInstancedDescriptions.data();
+			vertexInputCI.pVertexAttributeDescriptions = attributeInstancedDescriptions.data();
 		}
 		else // 正常VBO渲染绑定
 		{
-			// 顶点缓存绑定的描述，定义了顶点都需要绑定什么数据，比如第一个位置绑定Position，第二个位置绑定Color，第三个位置绑定UV等
-			auto bindingDescription = FVertex::GetBindingDescription();
-			auto attributeDescriptions = FVertex::GetAttributeDescriptions();
-
 			vertexInputCI.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 			vertexInputCI.vertexBindingDescriptionCount = 1;
 			vertexInputCI.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
